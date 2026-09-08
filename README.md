@@ -74,7 +74,8 @@ automatically and fall back to a hidden prompt when the secret is not present.
 Available notebooks:
 
 - `notebooks/sprint_1_llm_structured_outputs.ipynb`
-- `notebooks/sprint_2_rag_hybrid_hyde.ipynb`
+- `notebooks/sprint_2_rag_hybrid_hyde.ipynb` - HelioDesk policy-support retrieval lab covering naive RAG indexing/retrieval, reranking, hybrid retrieval, and HyDE query rewriting
+- `data/heliodesk-policies.md` - source policy handbook used by the Sprint 2 retrieval notebook
 - `notebooks/sprint_3_tools_mcp.ipynb`
 
 ```python
