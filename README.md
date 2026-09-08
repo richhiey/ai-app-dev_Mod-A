@@ -63,6 +63,17 @@ python scripts/search.py "where does naive RAG break?" --rerank --hyde
 
 ## Notebook Pattern
 
+The Colab notebooks in `notebooks/` begin by cloning
+`https://github.com/richhiey/ai-app-dev_Mod-A.git` and installing the repo in
+editable mode. This keeps live and campus notebooks on the shared source of
+truth instead of copying helper functions into each notebook.
+
+Available notebooks:
+
+- `notebooks/sprint_1_llm_structured_outputs.ipynb`
+- `notebooks/sprint_2_rag_hybrid_hyde.ipynb`
+- `notebooks/sprint_3_tools_mcp.ipynb`
+
 ```python
 from hybrid import HybridRetriever
 from keyword_search import BM25Retriever
