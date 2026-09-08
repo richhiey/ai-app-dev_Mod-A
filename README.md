@@ -68,6 +68,9 @@ The Colab notebooks in `notebooks/` begin by cloning
 editable mode. This keeps live and campus notebooks on the shared source of
 truth instead of copying helper functions into each notebook.
 
+In Colab, add `OPENROUTER_API_KEY` in Secrets. The notebooks will use that value
+automatically and fall back to a hidden prompt when the secret is not present.
+
 Available notebooks:
 
 - `notebooks/sprint_1_llm_structured_outputs.ipynb`
