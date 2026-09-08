@@ -17,6 +17,8 @@ REQUIRED_TOPICS = {
     "notebooks/sprint_1_llm_structured_outputs.ipynb": [
         "OpenRouterClient",
         "StructuredOutputGraph",
+        "APPLICATION_COMPONENTS",
+        "MODEL_ACCESS_PATHS",
         "client.chat",
         "client.structured",
     ],
@@ -31,7 +33,35 @@ REQUIRED_TOPICS = {
         "ToolRegistry",
         "ToolCallingAgent",
         "build_mcp_server",
+        "inspect_and_call_stdio_tool",
         "keyword_search_documents",
+    ],
+}
+LIVE_SESSION_ARCS = {
+    "notebooks/sprint_1_llm_structured_outputs.ipynb": [
+        "## 3. Map the application boundary",
+        "## 4. Compare the three access paths",
+        "## 5. Make a direct LLM call",
+        "## 6. Move from text to validated JSON",
+        "## 7. Wrap the same idea in LangGraph",
+        "## 8. Sprint 1 checkpoint defense",
+    ],
+    "notebooks/sprint_2_rag_hybrid_hyde.ipynb": [
+        "## 5. Baseline retrieval",
+        "## 6. LS5: Rerank the candidate pool",
+        "## 7. LS6: Add hybrid search",
+        "## 8. LS6: Tune the blend",
+        "## 9. LS7: Rewrite the query with HyDE",
+        "## 10. LS8: Build the checkpoint defense",
+    ],
+    "notebooks/sprint_3_tools_mcp.ipynb": [
+        "## 4. Inspect the schemas sent to the model",
+        "## 5. Execute a valid direct tool call",
+        "## 6. Handle malformed and failed tool calls",
+        "## 7. Let the model run a multi-step tool loop",
+        "## 8. Connect to the MCP server",
+        "## 9. Validate the MCP response",
+        "## 10. LS12 checkpoint evidence",
     ],
 }
 MODEL_SLUG_RE = re.compile(r"\b(?:google|cohere)/[a-z0-9._:-]+\b")
@@ -97,6 +127,16 @@ def test_notebooks_cover_required_sprint_topics() -> None:
         )
         for topic in topics:
             assert topic in source
+
+
+def test_notebooks_follow_live_session_arcs() -> None:
+    for relative_path, headings in LIVE_SESSION_ARCS.items():
+        notebook = _load_notebook(relative_path)
+        source = "\n".join(
+            "".join(cell.get("source", [])) for cell in notebook.get("cells", [])
+        )
+        positions = [source.index(heading) for heading in headings]
+        assert positions == sorted(positions)
 
 
 def test_notebooks_only_reference_enabled_openrouter_models() -> None:
