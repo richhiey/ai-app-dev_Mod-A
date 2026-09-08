@@ -1,6 +1,6 @@
 # HelioDesk support policy handbook
 
-This handbook is the source document for HelioDesk support retrieval practice. It collects operating policies that support specialists must follow when answering customer questions about exports, account access, refunds, invoices, Enterprise commitments, data sharing, trials, security, and internal support notes. The document is intentionally written as normal policy text, not as pre-made retrieval chunks. The notebook loads this document, splits it with `RecursiveCharacterTextSplitter`, and indexes the generated chunks in ChromaDB.
+This handbook is the source document for HelioDesk support retrieval practice. It collects operating policies that support specialists must follow when answering customer questions about exports, account access, refunds, invoices, Enterprise commitments, data sharing, trials, security, and internal support notes. The document is intentionally written as normal policy text, not as pre-made retrieval chunks. The notebook loads this document, splits it with the shared `chunk_text(...)` helper, and indexes the generated chunks in ChromaDB.
 
 Support specialists should answer from the policy evidence that is actually retrieved. If the retrieved context does not contain enough evidence for a decision, the specialist should say what is known, explain what is missing, and route the case to the correct internal owner. Support should not invent exceptions, promise timelines that are not written in policy, or cite internal-only controls in customer-facing messages.
 

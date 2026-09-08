@@ -58,6 +58,7 @@ LIVE_SESSION_ARCS = {
         "## 8. Tune the blend",
         "## 9. Rewrite the query with HyDE",
         "## 10. Build the checkpoint defense",
+        "## 11. Assessment workspace: three retrieval tasks",
     ],
     "notebooks/sprint_3_tools_mcp.ipynb": [
         "## 4. Inspect the schemas sent to the model",
