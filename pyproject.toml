@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "ms-ai-ml-helper-core"
-version = "0.1.0"
+version = "0.1.1"
 description = "Shared Python helper core for Masterschool AI/ML app development notebooks."
 readme = "README.md"
 requires-python = ">=3.10"
