@@ -8,6 +8,10 @@ from models import all_allowed_model_ids
 
 ROOT = Path(__file__).resolve().parents[1]
 REPO_URL = "https://github.com/richhiey/ai-app-dev_Mod-A.git"
+PIP_REQUIREMENT = (
+    "ms-ai-ml-helper-core @ "
+    "git+https://github.com/richhiey/ai-app-dev_Mod-A.git@main"
+)
 NOTEBOOKS = [
     "notebooks/sprint_1_llm_structured_outputs.ipynb",
     "notebooks/sprint_2_rag_hybrid_hyde.ipynb",
@@ -89,14 +93,11 @@ def test_colab_notebooks_are_valid_and_install_from_github() -> None:
 
         assert notebook["nbformat"] == 4
         assert REPO_URL in setup_code
-        assert 'REPO_BRANCH = "main"' in setup_code
-        assert 'REPO_DIR.exists() and (REPO_DIR / ".git").exists()' in setup_code
-        assert '"git", "clone", "--depth", "1", "--branch", REPO_BRANCH' in setup_code
-        assert '"git", "-C", str(REPO_DIR), "pull", "--ff-only", "origin", REPO_BRANCH' in setup_code
-        assert "\"pip\", \"install\", \"-q\", \"-e\"" in setup_code
-        assert "SRC_DIR = REPO_DIR / \"src\"" in setup_code
-        assert "sys.path.insert(0, str(SRC_DIR))" in setup_code
-        assert "importlib.invalidate_caches()" in setup_code
+        assert PIP_REQUIREMENT in setup_code
+        assert "%pip install -q --upgrade" in setup_code
+        assert "subprocess" not in setup_code
+        assert "sys.path" not in setup_code
+        assert "REPO_DIR" not in setup_code
         assert "userdata.get(\"OPENROUTER_API_KEY\")" in code
         assert "ms_ai_ml_core" not in code
         assert "/Users/richhiey" not in code
@@ -106,6 +107,9 @@ def test_notebook_code_cells_parse_as_python() -> None:
     for relative_path in NOTEBOOKS:
         notebook = _load_notebook(relative_path)
         for index, source in enumerate(_code_sources(notebook)):
+            if index == 0:
+                assert source.lstrip().startswith("#@title Install helper core")
+                continue
             ast.parse(source, filename=f"{relative_path}:cell-{index}")
 
 
