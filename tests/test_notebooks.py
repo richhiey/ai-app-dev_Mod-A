@@ -32,6 +32,7 @@ REQUIRED_TOPICS = {
         "HybridRetriever",
         "OpenRouterReranker",
         "HyDERewriter",
+        "uuid.uuid4().hex",
     ],
     "notebooks/sprint_3_tools_mcp.ipynb": [
         "ToolRegistry",

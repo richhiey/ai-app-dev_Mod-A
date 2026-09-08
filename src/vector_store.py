@@ -9,6 +9,10 @@ from documents import Document
 from hybrid import RetrievalResult
 
 
+class ChromaStoreError(RuntimeError):
+    """Raised when a Chroma collection cannot be opened safely."""
+
+
 class Embedder(Protocol):
     def embed(self, texts: list[str]) -> list[list[float]]:
         ...
@@ -33,8 +37,18 @@ class ChromaStore:
             raise ImportError("Install chromadb to use ChromaStore.") from exc
 
         self.path.mkdir(parents=True, exist_ok=True)
-        self._client = chromadb.PersistentClient(path=str(self.path))
-        self._collection = self._client.get_or_create_collection(name=collection_name)
+        try:
+            self._client = chromadb.PersistentClient(path=str(self.path))
+            self._collection = self._client.get_or_create_collection(name=collection_name)
+        except Exception as exc:
+            if not _is_local_chroma_database_error(exc):
+                raise
+            raise ChromaStoreError(
+                "ChromaDB could not open the local database at "
+                f"'{self.path}'. In Colab, rerun the notebook with a fresh DB_PATH. "
+                "If you are using a fixed path, delete or rename that Chroma directory "
+                "and rebuild the index."
+            ) from exc
 
     def index(self, documents: list[Document], *, batch_size: int = 32) -> int:
         """Upsert documents and their embeddings into Chroma."""
@@ -124,3 +138,13 @@ def _sanitize_metadata(metadata: dict[str, Any]) -> dict[str, str | int | float 
         elif value is not None:
             sanitized[key] = str(value)
     return sanitized
+
+
+def _is_local_chroma_database_error(exc: Exception) -> bool:
+    message = str(exc).lower()
+    return (
+        "database error" in message
+        or "no such table" in message
+        or "tenants" in message
+        or "sqlite" in message
+    )

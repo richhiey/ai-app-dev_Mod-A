@@ -1,5 +1,10 @@
+import sys
+from types import SimpleNamespace
+
+import pytest
+
 from documents import Document
-from vector_store import ChromaStore
+from vector_store import ChromaStore, ChromaStoreError
 
 
 class FakeEmbedder:
@@ -34,3 +39,25 @@ def test_chroma_store_indexes_and_queries_documents(tmp_path) -> None:
     assert results[0].document.id == "rag"
     assert results[0].document.metadata["lesson"] == "LS 5"
     assert results[0].semantic_score is not None
+
+
+def test_chroma_store_explains_corrupt_tenant_schema(monkeypatch, tmp_path) -> None:
+    class BrokenClient:
+        def __init__(self, *, path):
+            self.path = path
+
+        def get_or_create_collection(self, name):
+            raise RuntimeError("Database error: no such table: tenants")
+
+    monkeypatch.setitem(
+        sys.modules,
+        "chromadb",
+        SimpleNamespace(PersistentClient=lambda path: BrokenClient(path=path)),
+    )
+
+    with pytest.raises(ChromaStoreError, match="ChromaDB could not open"):
+        ChromaStore(
+            path=tmp_path / "broken_chroma",
+            collection_name="course_test",
+            embedder=FakeEmbedder(),
+        )
