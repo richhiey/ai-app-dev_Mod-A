@@ -95,7 +95,7 @@ def test_colab_notebooks_are_valid_and_install_from_github() -> None:
         assert notebook["nbformat"] == 4
         assert REPO_URL in setup_code
         assert PIP_REQUIREMENT in setup_code
-        assert "%pip install -q --upgrade" in setup_code
+        assert "%pip install -q --force-reinstall --no-cache-dir" in setup_code
         assert "subprocess" not in setup_code
         assert "sys.path" not in setup_code
         assert "REPO_DIR" not in setup_code
