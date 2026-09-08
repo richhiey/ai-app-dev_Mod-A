@@ -53,11 +53,11 @@ LIVE_SESSION_ARCS = {
     ],
     "notebooks/sprint_2_rag_hybrid_hyde.ipynb": [
         "## 5. Baseline retrieval",
-        "## 6. LS5: Rerank the candidate pool",
-        "## 7. LS6: Add hybrid search",
-        "## 8. LS6: Tune the blend",
-        "## 9. LS7: Rewrite the query with HyDE",
-        "## 10. LS8: Build the checkpoint defense",
+        "## 6. Rerank the candidate pool",
+        "## 7. Add hybrid search",
+        "## 8. Tune the blend",
+        "## 9. Rewrite the query with HyDE",
+        "## 10. Build the checkpoint defense",
     ],
     "notebooks/sprint_3_tools_mcp.ipynb": [
         "## 4. Inspect the schemas sent to the model",
