@@ -216,3 +216,10 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+
+# Course helper local data
+.DS_Store
+.chroma/
+data/chroma/
+data/raw/
+data/indexed/
