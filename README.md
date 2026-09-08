@@ -11,7 +11,7 @@ Shared Python helpers for the AI & ML App Development course notebooks. The repo
 - HyDE query rewriting
 - LangGraph structured-output workflows
 - Multi-step tool calling with structured tool errors
-- A small MCP server for tool exposure practice
+- Small MCP server and stdio client helpers for tool exposure practice
 
 ## Course Model Policy
 
@@ -103,6 +103,10 @@ mcp dev src/mcp_server.py
 ```
 
 The server exposes `health` and `keyword_search`. These are deliberately small so students can inspect the generated schemas before adding course-specific tools.
+
+For notebook-based MCP practice, use `inspect_and_call_stdio_tool` from
+`mcp_client.py` to connect to the local server, inspect advertised tools, call
+one tool, and validate the returned content.
 
 ## Tests
 

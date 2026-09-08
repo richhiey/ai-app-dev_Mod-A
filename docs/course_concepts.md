@@ -55,6 +55,7 @@ Repo support:
 - `ToolCallingAgent`
 - structured tool execution errors
 - `mcp_server.py`
+- `mcp_client.py`
 
 ## Sprint 4: Project Application
 

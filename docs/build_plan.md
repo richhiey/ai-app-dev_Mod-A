@@ -18,6 +18,7 @@ Create a shared Python helper core that campus and live Colab notebooks can impo
 - `agent.py`: multi-step model and tool loop.
 - `structured_graph.py`: LangGraph workflow for structured output.
 - `mcp_server.py`: minimal MCP server for inspection and extension.
+- `mcp_client.py`: stdio MCP client helpers for connect, inspect, call, and validate labs.
 
 ## Notebook Sequence
 
@@ -25,7 +26,7 @@ Create a shared Python helper core that campus and live Colab notebooks can impo
 2. Sprint 2 notebooks chunk files, index into ChromaDB, run semantic search, add BM25, tune hybrid alpha, then rerank.
 3. Sprint 2 extension notebooks add HyDE and compare retrieved chunks before and after rewriting.
 4. Sprint 3 notebooks define a tool schema, run one tool call, force a tool failure, then run a multi-step tool loop.
-5. Sprint 3 MCP notebooks run the MCP server, inspect tools in the MCP Inspector, and explain when MCP beats direct integration.
+5. Sprint 3 MCP notebooks connect to the MCP server over stdio, inspect tools, call one capability, validate the response, and optionally use MCP Inspector locally.
 6. Sprint 4 projects compose retrieval, reranking, HyDE, and at least one tool or MCP capability.
 
 ## Testing Strategy
