@@ -35,11 +35,12 @@ REQUIRED_TOPICS = {
         "uuid.uuid4().hex",
     ],
     "notebooks/sprint_3_tools_mcp.ipynb": [
-        "ToolRegistry",
-        "ToolCallingAgent",
-        "build_mcp_server",
-        "inspect_and_call_stdio_tool",
-        "keyword_search_documents",
+        "sprint3_tools_mcp",
+        "build_heliodesk_tool_registry",
+        "run_failure_scenarios",
+        "run_scripted_tool_loop",
+        "connect_to_heliodesk_policy_mcp",
+        "validate_mcp_policy_response",
     ],
 }
 LIVE_SESSION_ARCS = {
@@ -100,7 +101,12 @@ def test_colab_notebooks_are_valid_and_install_from_github() -> None:
         assert "subprocess" not in setup_code
         assert "sys.path" not in setup_code
         assert "REPO_DIR" not in setup_code
-        assert "userdata.get(\"OPENROUTER_API_KEY\")" in code
+        credential_source = code
+        if relative_path == "notebooks/sprint_3_tools_mcp.ipynb":
+            credential_source += (ROOT / "src" / "sprint3_tools_mcp.py").read_text(
+                encoding="utf-8"
+            )
+        assert "userdata.get(\"OPENROUTER_API_KEY\")" in credential_source
         assert "ms_ai_ml_core" not in code
         assert "/Users/richhiey" not in code
 
@@ -123,6 +129,25 @@ def test_notebooks_are_clean_for_publication() -> None:
             if cell.get("cell_type") == "code":
                 assert cell.get("execution_count") is None
                 assert cell.get("outputs") == []
+
+
+def test_sprint_3_notebook_keeps_helper_plumbing_hidden() -> None:
+    notebook = _load_notebook("notebooks/sprint_3_tools_mcp.ipynb")
+    code_cells = [
+        "".join(cell.get("source", []))
+        for cell in notebook.get("cells", [])
+        if cell.get("cell_type") == "code"
+    ]
+    visible_code_cells = [
+        "".join(cell.get("source", []))
+        for cell in notebook.get("cells", [])
+        if cell.get("cell_type") == "code" and cell.get("metadata", {}).get("cellView") != "form"
+    ]
+
+    assert any("from sprint3_tools_mcp import" in source for source in code_cells)
+    assert not any("def check_export_authorization" in source for source in visible_code_cells)
+    assert not any("class ScriptedHelioDeskClient" in source for source in visible_code_cells)
+    assert all(len(source.splitlines()) <= 30 for source in visible_code_cells)
 
 
 def test_notebooks_cover_required_sprint_topics() -> None:
