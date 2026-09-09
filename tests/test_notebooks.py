@@ -58,7 +58,7 @@ LIVE_SESSION_ARCS = {
         "## 8. Tune the blend",
         "## 9. Rewrite the query with HyDE",
         "## 10. Build the checkpoint defense",
-        "## 11. Assessment workspace: three retrieval tasks",
+        "## 11. Guided checkpoint: three retrieval tasks",
     ],
     "notebooks/sprint_3_tools_mcp.ipynb": [
         "## 4. Inspect the schemas sent to the model",
@@ -67,7 +67,7 @@ LIVE_SESSION_ARCS = {
         "## 7. Let the model run a multi-step tool loop",
         "## 8. Connect to the MCP server",
         "## 9. Validate the MCP response",
-        "## 10. LS12 checkpoint evidence",
+        "## 10. Sprint 3 checkpoint answers and evidence",
     ],
 }
 MODEL_SLUG_RE = re.compile(r"\b(?:google|cohere)/[a-z0-9._:-]+\b")

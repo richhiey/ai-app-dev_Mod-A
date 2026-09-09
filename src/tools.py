@@ -127,6 +127,53 @@ def _validate_args(schema: dict[str, Any], args: dict[str, Any]) -> None:
         extras = set(args) - allowed
         if extras:
             raise ValueError(f"Unexpected tool argument(s): {', '.join(sorted(extras))}.")
+    properties = schema.get("properties") or {}
+    for key, value in args.items():
+        property_schema = properties.get(key) or {}
+        _validate_property_schema(key, value, property_schema)
+
+
+def _validate_property_schema(key: str, value: Any, property_schema: dict[str, Any]) -> None:
+    if "enum" in property_schema and value not in property_schema["enum"]:
+        allowed = ", ".join(map(str, property_schema["enum"]))
+        raise ValueError(f"Tool argument '{key}' must be one of: {allowed}.")
+
+    expected_type = property_schema.get("type")
+    if expected_type and not _matches_json_type(value, expected_type):
+        if isinstance(expected_type, list):
+            expected = " or ".join(map(str, expected_type))
+        else:
+            expected = str(expected_type)
+        raise ValueError(f"Tool argument '{key}' must be {expected}.")
+
+    if isinstance(value, (int, float)) and not isinstance(value, bool):
+        minimum = property_schema.get("minimum")
+        maximum = property_schema.get("maximum")
+        if minimum is not None and value < minimum:
+            raise ValueError(f"Tool argument '{key}' must be >= {minimum}.")
+        if maximum is not None and value > maximum:
+            raise ValueError(f"Tool argument '{key}' must be <= {maximum}.")
+
+
+def _matches_json_type(value: Any, expected_type: str | list[str]) -> bool:
+    if isinstance(expected_type, list):
+        return any(_matches_json_type(value, item) for item in expected_type)
+
+    if expected_type == "string":
+        return isinstance(value, str)
+    if expected_type == "integer":
+        return isinstance(value, int) and not isinstance(value, bool)
+    if expected_type == "number":
+        return isinstance(value, (int, float)) and not isinstance(value, bool)
+    if expected_type == "boolean":
+        return isinstance(value, bool)
+    if expected_type == "array":
+        return isinstance(value, list)
+    if expected_type == "object":
+        return isinstance(value, dict)
+    if expected_type == "null":
+        return value is None
+    return True
 
 
 def _to_json_content(result: Any) -> str:

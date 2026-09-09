@@ -76,7 +76,7 @@ Available notebooks:
 - `notebooks/sprint_1_llm_structured_outputs.ipynb`
 - `notebooks/sprint_2_rag_hybrid_hyde.ipynb` - HelioDesk policy-support retrieval lab covering naive RAG indexing/retrieval, reranking, hybrid retrieval, and HyDE query rewriting
 - `data/heliodesk-policies.md` - source policy handbook used by the Sprint 2 retrieval notebook
-- `notebooks/sprint_3_tools_mcp.ipynb`
+- `notebooks/sprint_3_tools_mcp.ipynb` - HelioDesk tool and MCP lab covering direct tool contracts, failed tool calls, a multi-step tool loop, helper MCP server creation, `stdio` connection, and MCP response validation
 
 ```python
 from hybrid import HybridRetriever
