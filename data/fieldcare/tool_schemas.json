@@ -1,0 +1,185 @@
+{
+  "simulated_current_date": "2026-09-09",
+  "status_enum": [
+    "found",
+    "not_found",
+    "unavailable",
+    "permission_denied",
+    "invalid_input",
+    "malformed_response",
+    "timeout"
+  ],
+  "tools": [
+    {
+      "name": "get_equipment_record",
+      "description": "Read the FieldCare equipment record for one confirmed equipment_id. Use it to verify model, site, warranty-status label, configuration, and support scope before combining documents with service data.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "equipment_id": {
+            "type": "string",
+            "description": "Confirmed equipment unique identifier such as EQ-FC-1001."
+          }
+        },
+        "required": [
+          "equipment_id"
+        ],
+        "additionalProperties": false
+      },
+      "result_contract": "Returns status, data, message, error_type, source_id, and retrieved_at. data is one equipment row when status is found.",
+      "safe_use_rules": [
+        "Do not guess an equipment_id.",
+        "If the model is unsupported, abstain from model-specific repair instructions and route to the legacy owner."
+      ]
+    },
+    {
+      "name": "get_warranty_status",
+      "description": "Read the current warranty and service-eligibility state for one equipment_id. Use this before answering whether a visit, part, or labor is covered.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "equipment_id": {
+            "type": "string"
+          },
+          "service_date": {
+            "type": "string",
+            "description": "Optional ISO date for the service event being checked."
+          }
+        },
+        "required": [
+          "equipment_id"
+        ],
+        "additionalProperties": false
+      },
+      "result_contract": "Returns coverage_state, labor_coverage, parts_coverage, exclusions, confidence, and recommended_next_step inside data when status is found.",
+      "safe_use_rules": [
+        "Warranty answers must come from this tool, not from policy text alone.",
+        "If status is unavailable or permission_denied, route to Warranty Operations."
+      ]
+    },
+    {
+      "name": "get_maintenance_history",
+      "description": "Read recent maintenance events for one equipment_id, optionally filtered by issue category. Use it when prior visits, repeat faults, replaced parts, or unresolved work can change the answer.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "equipment_id": {
+            "type": "string"
+          },
+          "limit": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 10,
+            "default": 5
+          },
+          "issue_category": {
+            "type": "string",
+            "description": "Optional issue family such as overheating, airflow_restriction, or sensor_fault."
+          }
+        },
+        "required": [
+          "equipment_id"
+        ],
+        "additionalProperties": false
+      },
+      "result_contract": "Returns most recent matching maintenance events in reverse chronological order.",
+      "safe_use_rules": [
+        "Use history together with current ticket state before recommending escalation.",
+        "Do not treat a closed past visit as proof that the current issue is resolved."
+      ]
+    },
+    {
+      "name": "get_ticket_status",
+      "description": "Read the current status, priority, escalation state, and next action for one confirmed ticket_id. Use it when urgency, ownership, or current workflow state matters.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "ticket_id": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "ticket_id"
+        ],
+        "additionalProperties": false
+      },
+      "result_contract": "Returns one service ticket row when found.",
+      "safe_use_rules": [
+        "Current ticket state must come from this tool, not from maintenance history alone.",
+        "If a ticket is missing, ask for the ticket_id or equipment_id before closing or escalating."
+      ]
+    },
+    {
+      "name": "search_service_docs",
+      "description": "Search current FieldCare service documentation. Use it to retrieve troubleshooting, safety, escalation, parts, and policy evidence before drafting an answer.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "query": {
+            "type": "string"
+          },
+          "model": {
+            "type": "string"
+          },
+          "topics": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "top_k": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 8,
+            "default": 5
+          }
+        },
+        "required": [
+          "query"
+        ],
+        "additionalProperties": false
+      },
+      "result_contract": "Returns ranked evidence rows with doc_id, chunk_id, title, score, current flag, and preview.",
+      "safe_use_rules": [
+        "If legacy or superseded documents appear, prefer current documents and label outdated evidence.",
+        "Do not use retrieved text as a warranty system of record."
+      ]
+    },
+    {
+      "name": "recommend_escalation_path",
+      "description": "Recommend the FieldCare handoff path for a confirmed equipment_id, ticket_id, and reason_code. This is a routing recommendation, not an action that closes or transfers a ticket.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "equipment_id": {
+            "type": "string"
+          },
+          "ticket_id": {
+            "type": "string"
+          },
+          "reason_code": {
+            "type": "string",
+            "enum": [
+              "safety_indicator",
+              "repeat_fault",
+              "unsupported_model",
+              "warranty_unavailable",
+              "permission_failure"
+            ]
+          }
+        },
+        "required": [
+          "equipment_id",
+          "ticket_id",
+          "reason_code"
+        ],
+        "additionalProperties": false
+      },
+      "result_contract": "Returns recommended team, priority note, and what evidence should be attached.",
+      "safe_use_rules": [
+        "This tool recommends a path but does not perform the handoff.",
+        "Safety indicators override normal troubleshooting."
+      ]
+    }
+  ]
+}

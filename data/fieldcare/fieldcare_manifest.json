@@ -1,0 +1,208 @@
+{
+  "project": "Sprint 4 - HelioDesk FieldCare",
+  "version": "1.0.0",
+  "simulated_current_date": "2026-09-09",
+  "scenario": "Field-service technicians use a scoped AI application to combine troubleshooting documentation, equipment records, maintenance history, ticket state, warranty state, retrieval, reranking, tool access, and safe escalation behavior.",
+  "asset_root": "lessons/ml-app-dev/module-a/campus/sprint-4/assets/fieldcare",
+  "canonical_publish_mirror": "ms-ai-ml-helper-core/data/fieldcare",
+  "assets": [
+    {
+      "file": "service_docs.jsonl",
+      "format": "JSONL",
+      "count": 12,
+      "consumed_by": [
+        "retrieval",
+        "reranking",
+        "context assembly",
+        "evaluation"
+      ],
+      "used_in": [
+        "Campus 1",
+        "Campus 2",
+        "Campus 3",
+        "Campus 4",
+        "LS13",
+        "LS14"
+      ]
+    },
+    {
+      "file": "equipment_records.csv",
+      "format": "CSV",
+      "count": 6,
+      "consumed_by": [
+        "get_equipment_record",
+        "scope checks",
+        "context assembly"
+      ],
+      "used_in": [
+        "Campus 1",
+        "Campus 3",
+        "Campus 4",
+        "LS14"
+      ]
+    },
+    {
+      "file": "maintenance_history.csv",
+      "format": "CSV",
+      "count": 8,
+      "consumed_by": [
+        "get_maintenance_history",
+        "repeat fault evaluation",
+        "context assembly"
+      ],
+      "used_in": [
+        "Campus 3",
+        "Campus 4",
+        "LS14"
+      ]
+    },
+    {
+      "file": "service_tickets.csv",
+      "format": "CSV",
+      "count": 8,
+      "consumed_by": [
+        "get_ticket_status",
+        "escalation checks",
+        "context assembly"
+      ],
+      "used_in": [
+        "Campus 2",
+        "Campus 3",
+        "Campus 4",
+        "LS14"
+      ]
+    },
+    {
+      "file": "tool_schemas.json",
+      "format": "JSON",
+      "count": 6,
+      "consumed_by": [
+        "tool planning",
+        "MCP-style contract review",
+        "orchestration"
+      ],
+      "used_in": [
+        "Campus 2",
+        "Campus 3",
+        "LS13",
+        "LS14"
+      ]
+    },
+    {
+      "file": "tool_fixture_responses.json",
+      "format": "JSON",
+      "count": 8,
+      "consumed_by": [
+        "tool failure simulation",
+        "edge-case tests",
+        "live-session demos"
+      ],
+      "used_in": [
+        "Campus 4",
+        "LS14"
+      ]
+    },
+    {
+      "file": "user_requests.jsonl",
+      "format": "JSONL",
+      "count": 16,
+      "consumed_by": [
+        "scoping",
+        "specification",
+        "manual testing",
+        "demo cases"
+      ],
+      "used_in": [
+        "Campus 1",
+        "Campus 2",
+        "Campus 3",
+        "LS13"
+      ]
+    },
+    {
+      "file": "eval_cases.jsonl",
+      "format": "JSONL",
+      "count": 16,
+      "consumed_by": [
+        "success criteria",
+        "edge-case testing",
+        "readiness assessment"
+      ],
+      "used_in": [
+        "Campus 2",
+        "Campus 4",
+        "LS14"
+      ]
+    }
+  ],
+  "id_scheme": {
+    "service_docs": "DOC-FC-{TYPE}-{###}",
+    "doc_chunks": "{doc_id}#C{##}",
+    "equipment": "EQ-FC-{####}",
+    "sites": "SITE-FC-{###}",
+    "customers": "CUST-FC-{###}",
+    "maintenance_events": "MH-FC-{####}",
+    "tickets": "TCK-FC-{####}",
+    "user_requests": "REQ-FC-{###}",
+    "eval_cases": "EVAL-FC-{###}",
+    "tool_calls": "TOOL-FC-{name}"
+  },
+  "asset_usage": {
+    "Campus 1": [
+      "fieldcare_manifest.json",
+      "README.md",
+      "user_requests.jsonl",
+      "service_docs.jsonl",
+      "equipment_records.csv"
+    ],
+    "Campus 2": [
+      "tool_schemas.json",
+      "eval_cases.jsonl",
+      "user_requests.jsonl",
+      "fieldcare_manifest.json"
+    ],
+    "Campus 3": [
+      "service_docs.jsonl",
+      "equipment_records.csv",
+      "maintenance_history.csv",
+      "service_tickets.csv",
+      "tool_schemas.json",
+      "user_requests.jsonl"
+    ],
+    "Campus 4": [
+      "eval_cases.jsonl",
+      "tool_fixture_responses.json",
+      "service_docs.jsonl",
+      "equipment_records.csv",
+      "maintenance_history.csv",
+      "service_tickets.csv"
+    ],
+    "LS13": [
+      "fieldcare_manifest.json",
+      "user_requests.jsonl",
+      "tool_schemas.json",
+      "eval_cases.jsonl"
+    ],
+    "LS14": [
+      "fieldcare_manifest.json",
+      "eval_cases.jsonl",
+      "tool_fixture_responses.json",
+      "sprint-4-fieldcare-project__colab.ipynb"
+    ],
+    "Shared Colab": [
+      "all files under assets/fieldcare/"
+    ]
+  },
+  "consistency_rules": [
+    "Every equipment_id in tickets, maintenance, requests, and evals must exist in equipment_records.csv, except deliberate missing-record cases.",
+    "Every ticket_id in maintenance, requests, and evals must exist in service_tickets.csv, except deliberate missing-ticket cases.",
+    "Every eval case references exactly one request_id.",
+    "Every required_doc_ids and must_not_use_doc_ids value exists in service_docs.jsonl.",
+    "DOC-FC-LEG-2019 may appear in retrieval candidates, but expected behavior should reject it when superseded by current documents.",
+    "Warranty answers must come from get_warranty_status, not service docs alone.",
+    "Current ticket state must come from get_ticket_status, not maintenance history alone.",
+    "Recurring fault logic requires both maintenance_history.csv and DOC-FC-ESC-007.",
+    "Safety escalation from DOC-FC-SAF-001 overrides routine troubleshooting and warranty discussion.",
+    "Tool failures produce abstain, retry-once, ask-for-info, or escalation behavior, never invented structured facts."
+  ]
+}

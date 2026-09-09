@@ -1,0 +1,189 @@
+{
+  "simulated_current_date": "2026-09-09",
+  "fixtures": [
+    {
+      "fixture_id": "FIX-FC-001",
+      "tool_name": "get_equipment_record",
+      "inputs": {
+        "equipment_id": "EQ-FC-1001"
+      },
+      "response": {
+        "status": "found",
+        "data_ref": "equipment_records.csv:EQ-FC-1001",
+        "message": "HX-200 equipment record found.",
+        "error_type": null,
+        "source_id": "equipment_records.csv",
+        "retrieved_at": "2026-09-09"
+      },
+      "lesson_use": [
+        "Campus 3",
+        "Campus 4",
+        "LS14"
+      ]
+    },
+    {
+      "fixture_id": "FIX-FC-002",
+      "tool_name": "get_equipment_record",
+      "inputs": {
+        "equipment_id": "EQ-FC-9999"
+      },
+      "response": {
+        "status": "not_found",
+        "data": null,
+        "message": "No equipment record found for EQ-FC-9999.",
+        "error_type": "missing_record",
+        "source_id": "equipment_records.csv",
+        "retrieved_at": "2026-09-09"
+      },
+      "lesson_use": [
+        "Campus 4"
+      ]
+    },
+    {
+      "fixture_id": "FIX-FC-003",
+      "tool_name": "get_warranty_status",
+      "inputs": {
+        "equipment_id": "EQ-FC-1001",
+        "service_date": "2026-09-09"
+      },
+      "response": {
+        "status": "found",
+        "data": {
+          "coverage_state": "active",
+          "parts_coverage": "active",
+          "labor_coverage": "active_when_policy_conditions_match",
+          "exclusions": [],
+          "confidence": "high",
+          "recommended_next_step": "combine_with_maintenance_history_and_policy_conditions"
+        },
+        "message": "Warranty is active, but coverage still depends on policy conditions.",
+        "error_type": null,
+        "source_id": "warranty_service_fixture",
+        "retrieved_at": "2026-09-09"
+      },
+      "lesson_use": [
+        "Campus 3",
+        "Campus 4",
+        "LS14"
+      ]
+    },
+    {
+      "fixture_id": "FIX-FC-004",
+      "tool_name": "get_warranty_status",
+      "inputs": {
+        "equipment_id": "EQ-FC-1004",
+        "service_date": "2026-09-09"
+      },
+      "response": {
+        "status": "found",
+        "data": {
+          "coverage_state": "active_limited",
+          "parts_coverage": "active",
+          "labor_coverage": "excluded_pending_review",
+          "exclusions": [
+            "unapproved_relocation"
+          ],
+          "confidence": "medium",
+          "recommended_next_step": "route_labor_question_to_warranty_operations"
+        },
+        "message": "Parts may remain covered, but labor is excluded pending review.",
+        "error_type": null,
+        "source_id": "warranty_service_fixture",
+        "retrieved_at": "2026-09-09"
+      },
+      "lesson_use": [
+        "Campus 2",
+        "Campus 4"
+      ]
+    },
+    {
+      "fixture_id": "FIX-FC-005",
+      "tool_name": "get_warranty_status",
+      "inputs": {
+        "equipment_id": "EQ-FC-1006",
+        "service_date": "2026-09-09"
+      },
+      "response": {
+        "status": "unavailable",
+        "data": null,
+        "message": "Warranty data is unavailable during asset migration.",
+        "error_type": "upstream_unavailable",
+        "source_id": "warranty_service_fixture",
+        "retrieved_at": "2026-09-09"
+      },
+      "lesson_use": [
+        "Campus 4",
+        "LS14"
+      ]
+    },
+    {
+      "fixture_id": "FIX-FC-006",
+      "tool_name": "get_warranty_status",
+      "inputs": {
+        "equipment_id": "EQ-FC-TIMEOUT",
+        "service_date": "2026-09-09"
+      },
+      "response": {
+        "status": "timeout",
+        "data": null,
+        "message": "Warranty service did not respond inside the client timeout.",
+        "error_type": "timeout",
+        "source_id": "warranty_service_fixture",
+        "retrieved_at": "2026-09-09"
+      },
+      "lesson_use": [
+        "Campus 4",
+        "LS14"
+      ]
+    },
+    {
+      "fixture_id": "FIX-FC-007",
+      "tool_name": "get_ticket_status",
+      "inputs": {
+        "ticket_id": "TCK-FC-9008"
+      },
+      "response": {
+        "status": "found",
+        "data_ref": "service_tickets.csv:TCK-FC-9008",
+        "message": "Ticket is open and requires supervisor review.",
+        "error_type": null,
+        "source_id": "service_tickets.csv",
+        "retrieved_at": "2026-09-09"
+      },
+      "lesson_use": [
+        "Campus 3",
+        "Campus 4",
+        "LS14"
+      ]
+    },
+    {
+      "fixture_id": "FIX-FC-008",
+      "tool_name": "recommend_escalation_path",
+      "inputs": {
+        "equipment_id": "EQ-FC-1001",
+        "ticket_id": "TCK-FC-9008",
+        "reason_code": "repeat_fault"
+      },
+      "response": {
+        "status": "found",
+        "data": {
+          "recommended_team": "Field Engineering",
+          "priority_note": "Repeat fault threshold met with unresolved latest visit.",
+          "attach_evidence": [
+            "DOC-FC-ESC-007",
+            "maintenance_history.csv:EQ-FC-1001",
+            "service_tickets.csv:TCK-FC-9008"
+          ]
+        },
+        "message": "Escalation path recommended but no ticket action was performed.",
+        "error_type": null,
+        "source_id": "routing_fixture",
+        "retrieved_at": "2026-09-09"
+      },
+      "lesson_use": [
+        "Campus 4",
+        "LS14"
+      ]
+    }
+  ]
+}

@@ -1,0 +1,9 @@
+ticket_id,equipment_id,opened_date,current_status,priority,issue_category,error_codes,escalation_state,assigned_team,previous_notes,next_action_due
+TCK-FC-9001,EQ-FC-1001,2026-08-10,closed,P4,filter_replacement,,none,Field Service,scheduled filter service completed with approved filter,
+TCK-FC-9004,EQ-FC-1001,2026-08-22,closed_monitoring,P3,overheating,E-117;A-09,monitoring,Field Service,airflow below threshold after callback; monitoring after intake cleaning,2026-09-08
+TCK-FC-9008,EQ-FC-1001,2026-09-04,open,P2,recurring_overheat,E-117;E-221,supervisor_review_required,Field Engineering,third callback after filter service; calibration deferred; latest run shows airflow normal but E-221 present,2026-09-10
+TCK-FC-9002,EQ-FC-1002,2026-08-18,closed,P3,airflow_restriction,A-09,none,Field Service,dust buildup addressed; interval shortened,2026-11-18
+TCK-FC-9003,EQ-FC-1003,2026-07-24,closed,P3,sensor_fault,E-221,none,Field Service,sensor harness replaced; billed out of warranty,
+TCK-FC-9005,EQ-FC-1004,2026-08-01,open,P3,warranty_question,,warranty_ops_review,Warranty Operations,unapproved relocation limits labor coverage pending review,2026-09-12
+TCK-FC-9006,EQ-FC-1005,2026-09-02,open,P3,unsupported_unit,A-09,handoff_required,Legacy Service Desk,AX-90 is outside FieldCare AI support scope,2026-09-09
+TCK-FC-9007,EQ-FC-1006,2026-09-01,blocked,P3,warranty_lookup,,data_unavailable,Warranty Operations,asset migration prevents warranty lookup,2026-09-11
