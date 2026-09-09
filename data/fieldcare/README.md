@@ -16,7 +16,7 @@ The simulated current date is `2026-09-09`.
 | `tool_schemas.json` | MCP-style callable contracts and safe-use rules | Tool planning and orchestration |
 | `tool_fixture_responses.json` | Deterministic tool success and failure fixtures | Edge-case testing |
 | `user_requests.jsonl` | Technician request bank with expected source needs | Scoping and manual tests |
-| `eval_cases.jsonl` | Expected behavior test suite | Evaluation and readiness assessment |
+| `eval_cases.jsonl` | Expected behavior test suite | Debugging map and edge-case improvement |
 
 ## Teaching design
 
@@ -46,6 +46,6 @@ The corpus intentionally includes:
 | Campus 2 | Tool schemas, evaluation cases, response flags |
 | Campus 3 | Full data package and shared Colab |
 | Campus 4 | Evaluation cases and failure fixtures |
-| LS13 | Scope examples, source/tool split, evidence checklist |
+| LS13 | Scope examples, source/tool split, checkpoint answer guide |
 | LS14 | Integrated path, edge cases, failure fixtures |
 | Shared Colab | All files in this folder |
