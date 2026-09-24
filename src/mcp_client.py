@@ -2,9 +2,11 @@
 
 from __future__ import annotations
 
+from contextlib import contextmanager
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any
+import tempfile
+from typing import Any, Iterator, TextIO
 
 
 @dataclass(frozen=True)
@@ -39,6 +41,7 @@ async def inspect_and_call_stdio_tool(
     cwd: str | Path | None = None,
     env: dict[str, str] | None = None,
     read_timeout_seconds: float | None = 30,
+    errlog_path: str | Path | None = None,
 ) -> MCPInspectAndCallResult:
     """Connect to an MCP stdio server, inspect tools, then call one tool.
 
@@ -58,19 +61,20 @@ async def inspect_and_call_stdio_tool(
         cwd=cwd,
         env=env,
     )
-    async with stdio_client(server_params) as (read_stream, write_stream):
-        async with ClientSession(
-            read_stream,
-            write_stream,
-            read_timeout_seconds=read_timeout_seconds,
-        ) as session:
-            initialized = await session.initialize()
-            tools_result = await session.list_tools()
-            call_result = await session.call_tool(
-                tool_name,
-                arguments or {},
+    with _stdio_errlog(errlog_path) as errlog:
+        async with stdio_client(server_params, errlog=errlog) as (read_stream, write_stream):
+            async with ClientSession(
+                read_stream,
+                write_stream,
                 read_timeout_seconds=read_timeout_seconds,
-            )
+            ) as session:
+                initialized = await session.initialize()
+                tools_result = await session.list_tools()
+                call_result = await session.call_tool(
+                    tool_name,
+                    arguments or {},
+                    read_timeout_seconds=read_timeout_seconds,
+                )
 
     server_info = initialized.server_info
     return MCPInspectAndCallResult(
@@ -104,3 +108,18 @@ def _content_texts(content: Any) -> list[str]:
         else:
             texts.append(str(item))
     return texts
+
+
+@contextmanager
+def _stdio_errlog(errlog_path: str | Path | None) -> Iterator[TextIO]:
+    """Return a real file-backed stderr stream for MCP stdio subprocesses."""
+
+    if errlog_path is None:
+        with tempfile.TemporaryFile("w+", encoding="utf-8") as handle:
+            yield handle
+        return
+
+    path = Path(errlog_path).resolve()
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with path.open("w+", encoding="utf-8") as handle:
+        yield handle

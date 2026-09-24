@@ -680,6 +680,7 @@ async def connect_to_heliodesk_policy_mcp() -> tuple[Any, dict[str, Any]]:
         command=sys.executable,
         args=["-m", "mcp_server"],
         tool_name="keyword_search",
+        errlog_path="heliodesk_mcp_stdio.stderr.log",
         arguments={
             "query": "external auditor export authorization secure portal audit channel",
             "documents": HELIODESK_POLICY_SNIPPETS,
