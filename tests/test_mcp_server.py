@@ -26,7 +26,9 @@ def test_build_mcp_server_returns_server_instance() -> None:
     assert server is not None
 
 
-def test_mcp_client_can_inspect_and_call_local_server() -> None:
+def test_mcp_client_can_inspect_and_call_local_server(tmp_path) -> None:
+    errlog_path = tmp_path / "mcp.stderr.log"
+
     result = asyncio.run(
         inspect_and_call_stdio_tool(
             command=sys.executable,
@@ -41,9 +43,11 @@ def test_mcp_client_can_inspect_and_call_local_server() -> None:
                 "top_k": 1,
             },
             cwd=Path(__file__).resolve().parents[1],
+            errlog_path=errlog_path,
         )
     )
 
+    assert errlog_path.exists()
     assert result.server_name == "ms-ai-ml-helper-core"
     assert [tool.name for tool in result.tools] == ["health", "keyword_search"]
     assert result.call.tool_name == "keyword_search"
