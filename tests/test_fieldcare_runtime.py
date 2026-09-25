@@ -1,12 +1,14 @@
 import ast
 import copy
 import json
+import shutil
 import sys
 import types
 from pathlib import Path
 
 import pytest
 
+import fieldcare
 import fieldcare_runtime
 from fieldcare import FieldCareArtifactError, search_fieldcare_service_docs
 
@@ -147,6 +149,52 @@ def runtime(monkeypatch):
         lambda **kw: search_fieldcare_service_docs(**kw),
     )
     return ns, pipeline
+
+
+def test_environment_downloads_missing_assets_to_disk(runtime, monkeypatch, tmp_path):
+    ns, _ = runtime
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.delenv("FIELDCARE_ASSET_DIR", raising=False)
+    monkeypatch.setattr(fieldcare, "__file__", str(tmp_path / "installed" / "fieldcare.py"))
+    calls = []
+
+    # Isolate network access in this unit test; retain the real dataset and finder.
+    def download(destination):
+        calls.append(destination)
+        shutil.copytree(ROOT / "data" / "fieldcare", destination)
+        return destination.resolve()
+
+    monkeypatch.setitem(ns, "download_fieldcare_assets", download)
+    env = ns["load_fieldcare_environment"]()
+    assert calls == [tmp_path / "data" / "fieldcare"]
+    assert env["asset_dir"] == calls[0]
+    assert all(Path(source).is_file() for source in env["loaded_assets"]["source"])
+    ns["load_fieldcare_environment"]()
+    assert len(calls) == 1
+
+
+def test_pipeline_preserves_environment_asset_directory(runtime, monkeypatch, tmp_path):
+    ns, pipeline = runtime
+    custom = tmp_path / "uploaded-assets"
+    shutil.copytree(ROOT / "data" / "fieldcare", custom)
+    env = {**pipeline.env, "asset_dir": custom}
+    registry_builder = ns["build_fieldcare_direct_registry"]
+    seen = []
+
+    def build_registry(asset_dir):
+        seen.append(asset_dir)
+        return registry_builder(asset_dir)
+
+    monkeypatch.setitem(ns, "build_fieldcare_direct_registry", build_registry)
+    design = ns["default_pipeline_design"]()
+    design.update(
+        app_contract=pipeline.app_contract,
+        retrieval_contract=pipeline.retrieval_contract,
+        capability_contract=pipeline.capability_contract,
+    )
+    rebuilt = ns["build_fieldcare_pipeline"](env, design)
+    assert rebuilt.asset_dir == custom
+    assert seen == [custom]
 
 
 def test_request_uses_only_mcp_evidence_and_preserves_call_order(runtime, monkeypatch):
