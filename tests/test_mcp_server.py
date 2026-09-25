@@ -1,4 +1,5 @@
 import asyncio
+from io import UnsupportedOperation
 from pathlib import Path
 import sys
 
@@ -53,3 +54,30 @@ def test_mcp_client_can_inspect_and_call_local_server(tmp_path) -> None:
     assert result.call.tool_name == "keyword_search"
     assert result.call.is_error is False
     assert "Tool schemas describe" in "\n".join(result.call.content_texts)
+
+
+def test_mcp_client_works_when_notebook_stderr_has_no_file_descriptor(
+    monkeypatch,
+) -> None:
+    class NotebookStderr:
+        def fileno(self):
+            raise UnsupportedOperation("fileno")
+
+        def write(self, value):
+            return len(value)
+
+        def flush(self):
+            return None
+
+    monkeypatch.setattr(sys, "stderr", NotebookStderr())
+    result = asyncio.run(
+        inspect_and_call_stdio_tool(
+            command=sys.executable,
+            args=[str(Path("src/mcp_server.py"))],
+            tool_name="health",
+            cwd=Path(__file__).resolve().parents[1],
+        )
+    )
+
+    assert result.call.is_error is False
+    assert '"status":"ok"' in "".join(result.call.content_texts).replace(" ", "")

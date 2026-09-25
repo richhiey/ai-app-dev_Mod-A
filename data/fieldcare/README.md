@@ -2,7 +2,9 @@
 
 This folder contains the single synthetic FieldCare environment used across the whole Sprint 4 project. The same documents, equipment records, maintenance history, tickets, tools, requests, and evaluation cases support the four Campus Independent Practice lessons, LS13, LS14, and the shared Colab notebook.
 
-The simulated current date is `2026-09-09`.
+The records describe a fictional course snapshot dated `2026-09-09`. Tools query
+these records directly; they do not contact an external equipment service.
+Model generation, embeddings, and reranking use real OpenRouter calls.
 
 ## Asset map
 
@@ -14,7 +16,6 @@ The simulated current date is `2026-09-09`.
 | `maintenance_history.csv` | Prior visits, replaced parts, recurring faults, deferred work, and unresolved state | `get_maintenance_history` |
 | `service_tickets.csv` | Current ticket status, priority, escalation state, and next action | `get_ticket_status` |
 | `tool_schemas.json` | MCP-style callable contracts and safe-use rules | Tool planning and orchestration |
-| `tool_fixture_responses.json` | Deterministic tool success and failure fixtures | Edge-case testing |
 | `user_requests.jsonl` | Technician request bank with expected source needs | Scoping and manual tests |
 | `eval_cases.jsonl` | Expected behavior test suite | Debugging map and edge-case improvement |
 
@@ -27,7 +28,10 @@ The corpus intentionally includes:
 - overlapping terms such as `overheating`, `filter`, `airflow`, `E-117`, and `sensor`;
 - a legacy bulletin, `DOC-FC-LEG-2019`, that looks useful but is superseded;
 - cases where equipment, maintenance history, warranty status, and current ticket state change the response;
-- tool failure cases for unavailable warranty data and timeouts.
+- evaluation scenarios for unavailable warranty data and timeouts. These describe
+  expected behavior, not guaranteed outcomes: the application never injects a
+  failure for a particular equipment ID. Unit tests cover failure handling with
+  isolated test doubles; the live notebook records what actually happened.
 
 ## Cross-reference rules
 
@@ -45,7 +49,7 @@ The corpus intentionally includes:
 | Campus 1 | Manifest, request bank, data-source map |
 | Campus 2 | Tool schemas, evaluation cases, response flags |
 | Campus 3 | Full data package and shared Colab |
-| Campus 4 | Evaluation cases and failure fixtures |
+| Campus 4 | Evaluation cases and observed traces |
 | LS13 | Scope examples, source/tool split, checkpoint answer guide |
-| LS14 | Integrated path, edge cases, failure fixtures |
+| LS14 | Integrated path, edge cases, observed traces |
 | Shared Colab | All files in this folder |

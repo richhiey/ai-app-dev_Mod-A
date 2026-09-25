@@ -89,20 +89,6 @@
       ]
     },
     {
-      "file": "tool_fixture_responses.json",
-      "format": "JSON",
-      "count": 8,
-      "consumed_by": [
-        "tool failure simulation",
-        "edge-case tests",
-        "live-session demos"
-      ],
-      "used_in": [
-        "Campus 4",
-        "LS14"
-      ]
-    },
-    {
       "file": "user_requests.jsonl",
       "format": "JSONL",
       "count": 16,
@@ -171,7 +157,6 @@
     ],
     "Campus 4": [
       "eval_cases.jsonl",
-      "tool_fixture_responses.json",
       "service_docs.jsonl",
       "equipment_records.csv",
       "maintenance_history.csv",
@@ -186,7 +171,6 @@
     "LS14": [
       "fieldcare_manifest.json",
       "eval_cases.jsonl",
-      "tool_fixture_responses.json",
       "sprint-4-fieldcare-project__colab.ipynb"
     ],
     "Shared Colab": [

@@ -3,14 +3,13 @@
 from __future__ import annotations
 
 import json
-import os
 import sys
-from getpass import getpass
 from typing import Any
 
 try:
     from IPython.display import JSON, Markdown, display
 except ImportError:  # pragma: no cover - used only outside notebooks
+
     class JSON:  # type: ignore[no-redef]
         def __init__(self, data: Any = None, *args: Any, **kwargs: Any) -> None:
             self.data = data
@@ -26,7 +25,8 @@ from agent import ToolCallingAgent
 from mcp_client import inspect_and_call_stdio_tool
 from mcp_server import build_mcp_server, course_core_health, keyword_search_documents
 from models import ChatModel
-from openrouter import ChatResponse, OpenRouterClient
+from openrouter import OpenRouterClient
+from notebook_setup import require_openrouter_key
 from tools import ToolExecutionResult, ToolRegistry
 
 HELIODESK_USER_REQUEST = (
@@ -34,7 +34,11 @@ HELIODESK_USER_REQUEST = (
     "at maya.singh@acme.example for an external auditor review?"
 )
 
-ALLOWED_REQUEST_TYPES = ["external_auditor_export", "customer_export", "internal_review"]
+ALLOWED_REQUEST_TYPES = [
+    "external_auditor_export",
+    "customer_export",
+    "internal_review",
+]
 
 HELIODESK_POLICY_SNIPPETS = [
     (
@@ -106,31 +110,6 @@ def pretty(obj: Any) -> None:
     display(JSON(serializable))
 
 
-def load_openrouter_key(required: bool = False) -> str | None:
-    key = os.getenv("OPENROUTER_API_KEY")
-    if not key:
-        try:
-            from google.colab import userdata
-
-            key = userdata.get("OPENROUTER_API_KEY")
-        except Exception:
-            key = None
-
-    if not key and required:
-        key = getpass("OpenRouter API key: ").strip()
-
-    if key:
-        os.environ["OPENROUTER_API_KEY"] = key
-        return key
-    return None
-
-
-def show_setup_status() -> bool:
-    key_available = load_openrouter_key(required=False) is not None
-    display(JSON({"openrouter_key_available": key_available, "value_hidden": key_available}))
-    return key_available
-
-
 def show_case_brief() -> dict[str, Any]:
     return {
         "business_case": "HelioDesk external auditor export request",
@@ -157,31 +136,6 @@ def check_export_authorization(
     workspace_id = workspace_id.strip().lower()
     requester_email = requester_email.strip().lower()
 
-    if workspace_id == "workspace-timeout":
-        raise TimeoutError("The authorization service did not respond inside the client timeout.")
-    if workspace_id == "workspace-malformed-response":
-        return "AUTH_OK=YES;approved_by=account_owner"
-    if workspace_id == "workspace-missing-data":
-        return {
-            "status": "found",
-            "workspace_id": workspace_id,
-            "requester_email": requester_email,
-            "request_type": request_type,
-            "message": "A record was found, but the authorization object is missing.",
-            "recommended_next_step": "stop_before_downstream_use",
-        }
-    if requester_email == "permission.denied@heliodesk.example":
-        return {
-            "status": "error",
-            "workspace_id": workspace_id,
-            "requester_email": requester_email,
-            "request_type": request_type,
-            "authorization": None,
-            "message": "The caller is not allowed to inspect this authorization record.",
-            "recommended_next_step": "route_to_authorized_owner",
-            "error_type": "permission_failure",
-        }
-
     record = AUTHORIZATION_RECORDS.get((workspace_id, requester_email, request_type))
     if not record:
         return {
@@ -198,7 +152,9 @@ def check_export_authorization(
 
 
 def search_heliodesk_policy(query: str, top_k: int = 2) -> list[dict[str, Any]]:
-    return keyword_search_documents(query=query, documents=HELIODESK_POLICY_SNIPPETS, top_k=top_k)
+    return keyword_search_documents(
+        query=query, documents=HELIODESK_POLICY_SNIPPETS, top_k=top_k
+    )
 
 
 def build_heliodesk_tool_registry() -> ToolRegistry:
@@ -226,7 +182,10 @@ def build_heliodesk_tool_registry() -> ToolRegistry:
     policy_search_parameters = {
         "type": "object",
         "properties": {
-            "query": {"type": "string", "description": "Policy question or source-like search text."},
+            "query": {
+                "type": "string",
+                "description": "Policy question or source-like search text.",
+            },
             "top_k": {"type": "integer", "minimum": 1, "maximum": 4},
         },
         "required": ["query"],
@@ -260,7 +219,11 @@ def build_heliodesk_tool_registry() -> ToolRegistry:
 
 def display_registered_tools(registry: ToolRegistry) -> None:
     names = [tool["function"]["name"] for tool in registry.to_openrouter_tools()]
-    display(Markdown("**Registered tools**\n\n" + "\n".join(f"- `{name}`" for name in names)))
+    display(
+        Markdown(
+            "**Registered tools**\n\n" + "\n".join(f"- `{name}`" for name in names)
+        )
+    )
 
 
 def inspect_tool_contracts(registry: ToolRegistry) -> list[dict[str, Any]]:
@@ -288,7 +251,9 @@ def inspect_tool_contracts(registry: ToolRegistry) -> list[dict[str, Any]]:
     return report
 
 
-def inspect_and_display_contracts(registry: ToolRegistry) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
+def inspect_and_display_contracts(
+    registry: ToolRegistry,
+) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
     schemas = registry.to_openrouter_tools()
     report = inspect_tool_contracts(registry)
     display(Markdown("### OpenRouter tool schemas"))
@@ -323,13 +288,17 @@ def make_authorization_tool_call(
     }
 
 
-def run_direct_authorization_check(registry: ToolRegistry) -> tuple[ToolExecutionResult, dict[str, Any]]:
+def run_direct_authorization_check(
+    registry: ToolRegistry,
+) -> tuple[ToolExecutionResult, dict[str, Any]]:
     result = registry.execute_tool_call(make_authorization_tool_call())
     payload = json.loads(result.content)
     return result, payload
 
 
-def display_direct_authorization_check(result: ToolExecutionResult, payload: dict[str, Any]) -> None:
+def display_direct_authorization_check(
+    result: ToolExecutionResult, payload: dict[str, Any]
+) -> None:
     pretty(
         {
             "ok": result.ok,
@@ -339,7 +308,9 @@ def display_direct_authorization_check(result: ToolExecutionResult, payload: dic
     )
 
 
-def assert_direct_authorization_check(result: ToolExecutionResult, payload: dict[str, Any]) -> None:
+def assert_direct_authorization_check(
+    result: ToolExecutionResult, payload: dict[str, Any]
+) -> None:
     assert result.ok is True
     assert payload["status"] == "found"
     assert payload["authorization"]["evidence_id"] == "AUTH-8841"
@@ -417,34 +388,30 @@ def classify_authorization_result(result: ToolExecutionResult) -> dict[str, Any]
 
 
 def failure_case_calls() -> list[dict[str, Any]]:
+    """Execute actual validation errors and an absent-record lookup."""
     return [
         {
             "case": "invalid_input_bad_json",
             "call": {
                 "id": "call_bad_json",
                 "type": "function",
-                "function": {"name": "check_export_authorization", "arguments": '{"workspace_id": '},
+                "function": {
+                    "name": "check_export_authorization",
+                    "arguments": '{"workspace_id": ',
+                },
             },
         },
         {
             "case": "invalid_input_extra_arg",
-            "call": make_authorization_tool_call(call_id="call_extra_arg", extra_args={"approve_share": True}),
+            "call": make_authorization_tool_call(
+                call_id="call_extra_arg", extra_args={"approve_share": True}
+            ),
         },
         {
             "case": "invalid_input_unsupported_request_type",
-            "call": make_authorization_tool_call(call_id="call_bad_enum", request_type="public_link_request"),
-        },
-        {
-            "case": "timeout",
-            "call": make_authorization_tool_call(call_id="call_timeout", workspace_id="workspace-timeout"),
-        },
-        {
-            "case": "malformed_response",
-            "call": make_authorization_tool_call(call_id="call_malformed_response", workspace_id="workspace-malformed-response"),
-        },
-        {
-            "case": "missing_data",
-            "call": make_authorization_tool_call(call_id="call_missing_data", workspace_id="workspace-missing-data"),
+            "call": make_authorization_tool_call(
+                call_id="call_bad_enum", request_type="public_link_request"
+            ),
         },
         {
             "case": "empty_result",
@@ -454,17 +421,12 @@ def failure_case_calls() -> list[dict[str, Any]]:
                 requester_email="sam.rivera@nova.example",
             ),
         },
-        {
-            "case": "permission_failure",
-            "call": make_authorization_tool_call(
-                call_id="call_permission",
-                requester_email="permission.denied@heliodesk.example",
-            ),
-        },
     ]
 
 
-def run_failure_scenarios(registry: ToolRegistry) -> tuple[list[dict[str, Any]], dict[str, Any]]:
+def run_failure_scenarios(
+    registry: ToolRegistry,
+) -> tuple[list[dict[str, Any]], dict[str, Any]]:
     failure_evidence = []
     failure_raw = {}
     for item in failure_case_calls():
@@ -477,7 +439,9 @@ def run_failure_scenarios(registry: ToolRegistry) -> tuple[list[dict[str, Any]],
             "failure_family": family,
             "retryable": classification["retryable"],
             "downstream_safe": classification["downstream_safe"],
-            "recovery": RECOVERY_BY_FAILURE.get(family, "continue_with_validated_result"),
+            "recovery": RECOVERY_BY_FAILURE.get(
+                family, "continue_with_validated_result"
+            ),
         }
         failure_evidence.append(row)
         failure_raw[item["case"]] = {
@@ -505,7 +469,7 @@ def display_failure_evidence(
     failure_evidence: list[dict[str, Any]],
     failure_raw: dict[str, Any],
     *,
-    focus_case: str = "missing_data",
+    focus_case: str = "empty_result",
 ) -> None:
     display(Markdown("### Failure evidence"))
     pretty(failure_evidence)
@@ -514,8 +478,10 @@ def display_failure_evidence(
 
 
 def assert_failure_scenarios(failure_evidence: list[dict[str, Any]]) -> None:
-    observed = {row["failure_family"] for row in failure_evidence if row["failure_family"]}
-    expected = {"invalid_input", "malformed_response", "missing_data", "timeout", "empty_result", "permission_failure"}
+    observed = {
+        row["failure_family"] for row in failure_evidence if row["failure_family"]
+    }
+    expected = {"invalid_input", "empty_result"}
     assert expected.issubset(observed)
 
 
@@ -523,7 +489,9 @@ def review_recovery_plan(
     failure_evidence: list[dict[str, Any]],
     decisions: dict[str, str],
 ) -> list[dict[str, Any]]:
-    observed = sorted({row["failure_family"] for row in failure_evidence if row["failure_family"]})
+    observed = sorted(
+        {row["failure_family"] for row in failure_evidence if row["failure_family"]}
+    )
     review = []
     for family in observed:
         accepted = ACCEPTED_RECOVERY_BY_FAILURE[family]
@@ -544,77 +512,6 @@ def display_recovery_review(recovery_review: list[dict[str, Any]]) -> None:
     pretty(recovery_review)
 
 
-class ScriptedHelioDeskClient:
-    def __init__(self) -> None:
-        self.calls = 0
-
-    def chat(self, messages: list[dict[str, Any]], **kwargs: Any) -> ChatResponse:
-        self.calls += 1
-        tool_messages = [message for message in messages if message.get("role") == "tool"]
-
-        if not tool_messages:
-            return ChatResponse(
-                content=None,
-                tool_calls=[
-                    {
-                        "id": "call_auth_from_model",
-                        "type": "function",
-                        "function": {
-                            "name": "check_export_authorization",
-                            "arguments": json.dumps(
-                                {
-                                    "workspace_id": "workspace-acme-ops",
-                                    "requester_email": "maya.singh@acme.example",
-                                    "request_type": "external_auditor_export",
-                                }
-                            ),
-                        },
-                    }
-                ],
-                raw={"source": "scripted-first-call"},
-            )
-
-        last_tool = tool_messages[-1]
-        if last_tool["name"] == "check_export_authorization":
-            payload = json.loads(last_tool["content"])
-            if payload.get("status") == "found":
-                return ChatResponse(
-                    content=None,
-                    tool_calls=[
-                        {
-                            "id": "call_policy_from_model",
-                            "type": "function",
-                            "function": {
-                                "name": "search_heliodesk_policy",
-                                "arguments": json.dumps(
-                                    {
-                                        "query": "external auditor export written authorization secure portal audit channel",
-                                        "top_k": 3,
-                                    }
-                                ),
-                            },
-                        }
-                    ],
-                    raw={"source": "scripted-second-call"},
-                )
-            return ChatResponse(
-                content="Stop before sharing: current authorization is not confirmed.",
-                tool_calls=[],
-                raw={"source": "scripted-stop"},
-            )
-
-        policy_results = json.loads(last_tool["content"])
-        top_policy = policy_results[0]["text"] if policy_results else "No policy evidence found."
-        return ChatResponse(
-            content=(
-                "Authorization is on record for the Acme requester. Use the policy evidence before replying: "
-                f"{top_policy} Do not share through a public link or ticket comment."
-            ),
-            tool_calls=[],
-            raw={"source": "scripted-final"},
-        )
-
-
 def summarize_tool_trace(run: Any) -> list[dict[str, Any]]:
     return [
         {
@@ -627,50 +524,47 @@ def summarize_tool_trace(run: Any) -> list[dict[str, Any]]:
     ]
 
 
-def run_scripted_tool_loop(registry: ToolRegistry) -> tuple[Any, list[dict[str, Any]]]:
-    scripted_agent = ToolCallingAgent(
-        client=ScriptedHelioDeskClient(),
-        tools=registry,
-        model=ChatModel.GEMINI_31_FLASH_LITE,
-        max_steps=4,
-        system_prompt=(
-            "You are the HelioDesk support assistant. Check current authorization first, "
-            "then retrieve policy evidence before writing a final answer."
-        ),
-    )
-    run = scripted_agent.run(HELIODESK_USER_REQUEST)
-    return run, summarize_tool_trace(run)
-
-
-def display_scripted_tool_loop(run: Any, tool_trace: list[dict[str, Any]]) -> None:
+def display_tool_loop(run: Any, tool_trace: list[dict[str, Any]]) -> None:
     display(Markdown(run.final_content or "[no final content returned]"))
-    display(JSON({"tool_calls_executed": len(run.tool_results), "tool_trace": tool_trace}))
-
-
-def run_live_tool_loop(registry: ToolRegistry, *, enabled: bool = False) -> Any | None:
-    if not enabled:
-        display(Markdown("Skipped. Set `RUN_LIVE_OPENROUTER = True` when you want to spend one live model run."))
-        return None
-    if not load_openrouter_key(required=True):
-        display(Markdown("No OpenRouter key loaded."))
-        return None
-
-    live_client = OpenRouterClient(app_title="ai-app-dev-module-a-sprint-3")
-    live_agent = ToolCallingAgent(
-        client=live_client,
-        tools=registry,
-        model=ChatModel.GEMINI_31_FLASH_LITE,
-        max_steps=4,
-        system_prompt=(
-            "You are the HelioDesk support assistant. For external auditor export questions, "
-            "check current authorization and retrieve policy evidence before answering. "
-            "Do not invent missing authorization or delivery rules."
-        ),
+    display(
+        JSON({"tool_calls_executed": len(run.tool_results), "tool_trace": tool_trace})
     )
-    live_run = live_agent.run(HELIODESK_USER_REQUEST)
-    display(Markdown(live_run.final_content or "[no text returned]"))
-    display(JSON({"tool_calls_executed": len(live_run.tool_results), "tool_trace": summarize_tool_trace(live_run)}))
-    return live_run
+
+
+def run_live_tool_loop(registry: ToolRegistry) -> Any:
+    """Let the real model request tools, execute them, and use their returned data."""
+    require_openrouter_key()
+    with OpenRouterClient(app_title="ai-app-dev-module-a-sprint-3") as client:
+        agent = ToolCallingAgent(
+            client=client,
+            tools=registry,
+            model=ChatModel.GEMINI_31_FLASH_LITE,
+            max_steps=6,
+            system_prompt=(
+                "You are the HelioDesk support assistant working with the course dataset. "
+                "First call check_export_authorization. After reading its result, call "
+                "search_heliodesk_policy to retrieve policy evidence. Do not call both in "
+                "parallel. Answer only after both have returned. Cite the authorization "
+                "evidence ID and policy evidence; never invent authorization or say you "
+                "sent an export. If a tool fails, describe the failure honestly."
+            ),
+        )
+        run = agent.run(HELIODESK_USER_REQUEST)
+    names = [result.name for result in run.tool_results if result.ok]
+    if not run.final_content or not {
+        "check_export_authorization",
+        "search_heliodesk_policy",
+    } <= set(names):
+        raise RuntimeError(
+            "The model did not complete both required tools and a final answer. Inspect its trace."
+        )
+    if names.index("check_export_authorization") > names.index(
+        "search_heliodesk_policy"
+    ):
+        raise RuntimeError(
+            "The model searched policy before checking authorization. Inspect its trace."
+        )
+    return run
 
 
 async def connect_to_heliodesk_policy_mcp() -> tuple[Any, dict[str, Any]]:
@@ -680,7 +574,6 @@ async def connect_to_heliodesk_policy_mcp() -> tuple[Any, dict[str, Any]]:
         command=sys.executable,
         args=["-m", "mcp_server"],
         tool_name="keyword_search",
-        errlog_path="heliodesk_mcp_stdio.stderr.log",
         arguments={
             "query": "external auditor export authorization secure portal audit channel",
             "documents": HELIODESK_POLICY_SNIPPETS,
@@ -740,7 +633,9 @@ def validate_mcp_policy_response(mcp_demo: Any) -> tuple[list[dict[str, Any]], s
     return validated_rows, downstream_note
 
 
-def display_mcp_validation(validated_rows: list[dict[str, Any]], downstream_note: str) -> None:
+def display_mcp_validation(
+    validated_rows: list[dict[str, Any]], downstream_note: str
+) -> None:
     display(Markdown("### Validated MCP rows"))
     pretty(validated_rows)
     display(Markdown("**Downstream note**\n\n" + downstream_note))
@@ -750,7 +645,9 @@ def review_decision_note(note: str) -> dict[str, Any]:
     lowered = note.lower()
     checks = {
         "mentions_contract": "contract" in lowered or "required" in lowered,
-        "mentions_failure": "failure" in lowered or "timeout" in lowered or "empty result" in lowered,
+        "mentions_failure": "failure" in lowered
+        or "timeout" in lowered
+        or "empty result" in lowered,
         "mentions_mcp_boundary": "mcp" in lowered,
         "mentions_direct_boundary": "direct" in lowered or "authorization" in lowered,
         "long_enough": len(note.split()) >= 45,
@@ -769,11 +666,11 @@ def build_task_answer_signals() -> dict[str, str]:
         "task_b_failure_handling": (
             "invalid_input should be repaired or clarified before execution; malformed_response "
             "and missing_data should be rejected and logged; timeout can be retried once for this "
-            "read-only fixture before routing; empty_result is not authorization; permission_failure "
+            "read-only tool before routing; empty_result is not authorization; permission_failure "
             "routes to an authorized owner."
         ),
         "task_c_multi_step_and_mcp": (
-            "The deterministic loop should call check_export_authorization before search_heliodesk_policy. "
+            "The model-driven loop should call check_export_authorization before search_heliodesk_policy. "
             "The MCP server should advertise keyword_search over stdio, and validated_mcp_rows should contain "
             "policy evidence. Direct tool output proves current state; MCP output supplies policy evidence."
         ),
@@ -787,7 +684,7 @@ def build_checkpoint_evidence(
     authorization_payload: dict[str, Any],
     failure_evidence: list[dict[str, Any]],
     recovery_review: list[dict[str, Any]],
-    scripted_run: Any,
+    model_run: Any,
     mcp_demo: Any,
     validated_mcp_rows: list[dict[str, Any]],
     mcp_downstream_note: str,
@@ -810,9 +707,9 @@ def build_checkpoint_evidence(
         },
         "task_c_multi_step_and_mcp": {
             "multi_step_tool_loop": {
-                "steps": scripted_run.steps,
-                "tools_called": [result.name for result in scripted_run.tool_results],
-                "final_content_preview": scripted_run.final_content,
+                "steps": model_run.steps,
+                "tools_called": [result.name for result in model_run.tool_results],
+                "final_content_preview": model_run.final_content,
             },
             "mcp_connection": {
                 "server": mcp_demo.server_name,
@@ -830,16 +727,18 @@ def validate_checkpoint_evidence(
     *,
     authorization_payload: dict[str, Any],
     recovery_review: list[dict[str, Any]],
-    scripted_run: Any,
+    model_run: Any,
     validated_mcp_rows: list[dict[str, Any]],
     decision_note_review: dict[str, Any],
 ) -> None:
     assert authorization_payload["authorization"]["evidence_id"] == "AUTH-8841"
     assert all(row["passes"] for row in recovery_review)
-    assert [result.name for result in scripted_run.tool_results] == [
-        "check_export_authorization",
-        "search_heliodesk_policy",
-    ]
+    names = [result.name for result in model_run.tool_results if result.ok]
+    assert {"check_export_authorization", "search_heliodesk_policy"} <= set(names)
+    assert names.index("check_export_authorization") < names.index(
+        "search_heliodesk_policy"
+    )
+    assert model_run.final_content
     assert validated_mcp_rows
     assert decision_note_review["passes"]
 
@@ -847,7 +746,6 @@ def validate_checkpoint_evidence(
 __all__ = [
     "HELIODESK_USER_REQUEST",
     "pretty",
-    "show_setup_status",
     "show_case_brief",
     "build_heliodesk_tool_registry",
     "display_registered_tools",
@@ -860,8 +758,8 @@ __all__ = [
     "assert_failure_scenarios",
     "review_recovery_plan",
     "display_recovery_review",
-    "run_scripted_tool_loop",
-    "display_scripted_tool_loop",
+    "display_tool_loop",
+    "summarize_tool_trace",
     "run_live_tool_loop",
     "connect_to_heliodesk_policy_mcp",
     "validate_mcp_policy_response",

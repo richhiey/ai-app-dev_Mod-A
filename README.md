@@ -38,6 +38,8 @@ cp .env.example .env
 ```
 
 Set `OPENROUTER_API_KEY` in `.env` or in your notebook environment.
+All four notebooks require a funded OpenRouter key and make real API calls.
+Missing credentials or exhausted API retries raise errors, not substitute answers.
 
 ## Quick Checks
 
@@ -77,6 +79,13 @@ Available notebooks:
 - `notebooks/sprint_2_rag_hybrid_hyde.ipynb` - HelioDesk policy-support retrieval lab covering naive RAG indexing/retrieval, reranking, hybrid retrieval, and HyDE query rewriting
 - `data/heliodesk-policies.md` - source policy handbook used by the Sprint 2 retrieval notebook
 - `notebooks/sprint_3_tools_mcp.ipynb` - HelioDesk tool and MCP lab covering direct tool contracts, failed tool calls, a multi-step tool loop, helper MCP server creation, `stdio` connection, and MCP response validation
+- `notebooks/sprint_4_fieldcare_project.ipynb` - FieldCare application integrating the three earlier exports, MCP retrieval, data-backed tools, and validated model responses
+
+HelioDesk and FieldCare are fictional course datasets. Tools really query those
+local records, but do not contact a production warranty service or change tickets.
+Sprint 3 lets a model choose tool calls. Sprint 4 uses explicit application
+orchestration rules, then asks a model to answer from retrieved passages and tool
+results. Its readable implementation is in `src/fieldcare_project.py`.
 
 ```python
 from hybrid import HybridRetriever
@@ -112,3 +121,14 @@ one tool, and validate the returned content.
 ## Tests
 
 The unit tests use fake model clients and fake embeddings where possible, so they do not spend OpenRouter credits. ChromaDB, LangGraph, and MCP are imported through the installed dependencies.
+
+Run the complete live notebook check separately. It consumes API credits and
+requires network access and the key configured above:
+
+```bash
+python tests/run_notebook_smoke.py
+```
+
+This executes every notebook's code, checks the exact artifact handoff to Sprint 4,
+and verifies real generation metadata and before-and-after retrieval traces.
+Evaluation scores are reported as measured, not replaced with passing results.

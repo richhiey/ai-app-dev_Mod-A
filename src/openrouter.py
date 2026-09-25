@@ -78,17 +78,20 @@ class OpenRouterClient:
         http_referer: str | None = None,
         http_client: httpx.Client | None = None,
         timeout: float = 60.0,
-        max_retries: int = 0,
+        max_retries: int = 2,
         retry_backoff: float = 0.5,
     ) -> None:
         self.api_key = api_key or os.getenv("OPENROUTER_API_KEY")
         self.base_url = base_url.rstrip("/")
         self.app_title = app_title
         self.http_referer = http_referer
+        if max_retries < 0 or retry_backoff < 0:
+            raise ValueError("Retry count and backoff must be non-negative.")
         self.max_retries = max_retries
         self.retry_backoff = retry_backoff
         self._client = http_client or httpx.Client(timeout=timeout)
         self._owns_client = http_client is None
+        self.last_chat_response: ChatResponse | None = None
 
     def close(self) -> None:
         if self._owns_client:
@@ -131,8 +134,7 @@ class OpenRouterClient:
         data = self._post("/chat/completions", payload)
         choice = self._first_choice(data)
         message = choice.get("message") or {}
-        self._raise_choice_error(choice)
-        return ChatResponse(
+        response = ChatResponse(
             content=message.get("content"),
             tool_calls=list(message.get("tool_calls") or []),
             raw=data,
@@ -140,6 +142,8 @@ class OpenRouterClient:
             model=data.get("model"),
             finish_reason=choice.get("finish_reason"),
         )
+        self.last_chat_response = response
+        return response
 
     def structured(
         self,
@@ -154,7 +158,9 @@ class OpenRouterClient:
     ) -> TModel:
         """Call a chat model with OpenRouter JSON Schema structured output."""
 
-        model_id = ensure_allowed_model(model or default_model_for(ModelPurpose.STRUCTURED))
+        model_id = ensure_allowed_model(
+            model or default_model_for(ModelPurpose.STRUCTURED)
+        )
         provider_prefs = {"require_parameters": True}
         if provider:
             provider_prefs.update(provider)
@@ -179,7 +185,9 @@ class OpenRouterClient:
             data = _parse_json_content(response.content)
             return output_model.model_validate(data)
         except (JSONDecodeError, ValidationError, TypeError, ValueError) as exc:
-            raise StructuredOutputError(f"Structured response failed validation: {exc}") from exc
+            raise StructuredOutputError(
+                f"Structured response failed validation: {exc}"
+            ) from exc
 
     def embed(
         self,
@@ -192,7 +200,9 @@ class OpenRouterClient:
     ) -> list[list[float]]:
         """Generate embeddings with the course-enabled embedding model."""
 
-        model_id = ensure_allowed_model(model or default_model_for(ModelPurpose.EMBEDDING))
+        model_id = ensure_allowed_model(
+            model or default_model_for(ModelPurpose.EMBEDDING)
+        )
         inputs: list[str] | str = texts if isinstance(texts, str) else list(texts)
         payload: dict[str, Any] = {"model": model_id, "input": inputs}
         if input_type is not None:
@@ -217,8 +227,14 @@ class OpenRouterClient:
     ) -> list[RerankResult]:
         """Rerank candidate document strings with the enabled Cohere reranker."""
 
-        model_id = ensure_allowed_model(model or default_model_for(ModelPurpose.RERANKING))
-        payload: dict[str, Any] = {"model": model_id, "query": query, "documents": documents}
+        model_id = ensure_allowed_model(
+            model or default_model_for(ModelPurpose.RERANKING)
+        )
+        payload: dict[str, Any] = {
+            "model": model_id,
+            "query": query,
+            "documents": documents,
+        }
         if top_n is not None:
             payload["top_n"] = top_n
         if provider is not None:
@@ -246,10 +262,15 @@ class OpenRouterClient:
                 response = self._client.post(url, json=payload, headers=self._headers())
                 data = self._decode_json(response)
                 self._raise_for_error_response(response, data)
+                # Providers can report a failed generation inside an HTTP 200 choice.
+                if path == "/chat/completions":
+                    self._raise_choice_error(self._first_choice(data))
                 return data
             except OpenRouterError as exc:
                 last_error = exc
-                if attempt >= self.max_retries or not _is_retryable(exc.status_code or exc.code):
+                if attempt >= self.max_retries or not (
+                    _is_retryable(exc.status_code) or _is_retryable(exc.code)
+                ):
                     raise
                 time.sleep(self.retry_backoff * (2**attempt))
         assert last_error is not None
@@ -279,12 +300,19 @@ class OpenRouterClient:
         return data
 
     @staticmethod
-    def _raise_for_error_response(response: httpx.Response, data: dict[str, Any]) -> None:
+    def _raise_for_error_response(
+        response: httpx.Response, data: dict[str, Any]
+    ) -> None:
         if response.status_code >= 400 or "error" in data:
             error = data.get("error") if isinstance(data.get("error"), dict) else {}
-            message = error.get("message") or f"OpenRouter request failed with {response.status_code}."
+            message = (
+                error.get("message")
+                or f"OpenRouter request failed with {response.status_code}."
+            )
             code = error.get("code")
-            metadata = error.get("metadata") if isinstance(error.get("metadata"), dict) else {}
+            metadata = (
+                error.get("metadata") if isinstance(error.get("metadata"), dict) else {}
+            )
             raise OpenRouterError(
                 message,
                 status_code=response.status_code,
@@ -306,7 +334,10 @@ class OpenRouterClient:
     def _raise_choice_error(choice: dict[str, Any]) -> None:
         error = choice.get("error")
         if isinstance(error, dict):
-            raise OpenRouterError(error.get("message", "OpenRouter choice failed."), code=error.get("code"))
+            raise OpenRouterError(
+                error.get("message", "OpenRouter choice failed."),
+                code=error.get("code"),
+            )
 
 
 class OpenRouterEmbedder:

@@ -147,7 +147,9 @@ def test_rerank_posts_to_openrouter_rerank_endpoint() -> None:
                     {
                         "index": 1,
                         "relevance_score": 0.98,
-                        "document": {"text": "Hybrid search combines lexical and semantic signals."},
+                        "document": {
+                            "text": "Hybrid search combines lexical and semantic signals."
+                        },
                     }
                 ],
             },
@@ -156,7 +158,10 @@ def test_rerank_posts_to_openrouter_rerank_endpoint() -> None:
     client = make_client(handler)
     ranked = client.rerank(
         query="keyword plus semantic search",
-        documents=["A model can call tools.", "Hybrid search combines lexical and semantic signals."],
+        documents=[
+            "A model can call tools.",
+            "Hybrid search combines lexical and semantic signals.",
+        ],
         top_n=1,
     )
 
@@ -165,3 +170,46 @@ def test_rerank_posts_to_openrouter_rerank_endpoint() -> None:
     assert seen["json"]["top_n"] == 1
     assert ranked[0].index == 1
     assert ranked[0].relevance_score == 0.98
+
+
+@pytest.mark.parametrize("shape", ["http", "body", "choice"])
+def test_retries_temporary_provider_failures(shape) -> None:
+    calls = []
+
+    def handler(request):
+        calls.append(request)
+        if len(calls) == 1:
+            error = {"code": 429, "message": "Rate limited"}
+            body = (
+                {"choices": [{"error": error}]}
+                if shape == "choice"
+                else {"error": error}
+            )
+            return httpx.Response(429 if shape == "http" else 200, json=body)
+        return httpx.Response(
+            200, json={"choices": [{"message": {"content": "Real response"}}]}
+        )
+
+    client = make_client(handler)
+    client.retry_backoff = 0
+    assert (
+        client.chat([{"role": "user", "content": "Hello"}]).content == "Real response"
+    )
+    assert len(calls) == 2
+
+
+@pytest.mark.parametrize("code, expected_calls", [(429, 3), (401, 1)])
+def test_retry_budget_and_non_retryable_errors(code, expected_calls) -> None:
+    calls = []
+
+    def handler(request):
+        calls.append(request)
+        return httpx.Response(
+            200, json={"choices": [{"error": {"code": code, "message": "Failed"}}]}
+        )
+
+    client = make_client(handler)
+    client.retry_backoff = 0
+    with pytest.raises(OpenRouterError, match="Failed"):
+        client.chat([{"role": "user", "content": "Hello"}])
+    assert len(calls) == expected_calls
