@@ -10,8 +10,6 @@ from datetime import datetime, timezone
 from io import StringIO
 from pathlib import Path
 from typing import Any, Callable, Optional
-from urllib.error import URLError
-from urllib.request import Request, urlopen
 
 import pandas as pd
 from IPython.display import JSON, Markdown, display
@@ -21,7 +19,9 @@ from documents import Document
 from fieldcare import (
     build_fieldcare_direct_registry,
     call_fieldcare_mcp,
+    download_fieldcare_assets,
     fieldcare_chunks,
+    find_fieldcare_asset_dir,
 )
 from fieldcare_runtime import (
     configure_contracts,
@@ -34,9 +34,6 @@ from notebook_setup import require_openrouter_key
 from openrouter import OpenRouterClient, StructuredOutputError
 
 DATA_SNAPSHOT_DATE = "2026-09-09"
-FIELDCARE_RAW_BASE_URL = (
-    "https://raw.githubusercontent.com/richhiey/ai-app-dev_Mod-A/main/data/fieldcare"
-)
 ID_RE = re.compile(r"(EQ-FC-[A-Z0-9]+|TCK-FC-[0-9]+)")
 
 
@@ -254,41 +251,46 @@ def candidate_asset_dirs() -> list[Path]:
     ]
 
 
-def read_asset_text(filename: str) -> tuple[str, str]:
-    """Read one FieldCare asset from local files first, then from the GitHub data mirror."""
-    for directory in candidate_asset_dirs():
-        path = directory / filename
-        if path.exists():
-            return path.read_text(encoding="utf-8"), str(path)
-
-    url = f"{FIELDCARE_RAW_BASE_URL}/{filename}"
-    request = Request(url, headers={"User-Agent": "fieldcare-sprint-4-colab"})
+def ensure_fieldcare_assets() -> Path:
+    """Keep a complete local dataset available to both Python tools and MCP."""
     try:
-        with urlopen(request, timeout=30) as response:
-            return response.read().decode("utf-8"), url
-    except URLError as exc:
-        raise RuntimeError(
-            "Could not load FieldCare assets locally or from GitHub. "
-            "Run the install cell, check internet access, or upload the assets/fieldcare folder to Colab."
-        ) from exc
+        return find_fieldcare_asset_dir()
+    except FileNotFoundError:
+        pass
+    for directory in candidate_asset_dirs():
+        try:
+            return find_fieldcare_asset_dir(directory)
+        except FileNotFoundError:
+            continue
+    return download_fieldcare_assets(Path.cwd() / "data" / "fieldcare")
 
 
-def load_json_asset(filename: str) -> tuple[dict[str, Any], str]:
+def read_asset_text(filename: str, asset_dir: Path | None = None) -> tuple[str, str]:
+    """Read an asset from the same local dataset used by the pipeline."""
+    path = (asset_dir if asset_dir is not None else ensure_fieldcare_assets()) / filename
+    return path.read_text(encoding="utf-8"), str(path)
+
+
+def load_json_asset(
+    filename: str, asset_dir: Path | None = None
+) -> tuple[dict[str, Any], str]:
     """Load a JSON FieldCare asset and return both parsed data and source path."""
-    text, source = read_asset_text(filename)
+    text, source = read_asset_text(filename, asset_dir)
     return json.loads(text), source
 
 
-def load_jsonl_asset(filename: str) -> tuple[list[dict[str, Any]], str]:
+def load_jsonl_asset(
+    filename: str, asset_dir: Path | None = None
+) -> tuple[list[dict[str, Any]], str]:
     """Load a JSONL FieldCare asset and return parsed rows plus source path."""
-    text, source = read_asset_text(filename)
+    text, source = read_asset_text(filename, asset_dir)
     rows = [json.loads(line) for line in text.splitlines() if line.strip()]
     return rows, source
 
 
-def load_csv_asset(filename: str) -> tuple[pd.DataFrame, str]:
+def load_csv_asset(filename: str, asset_dir: Path | None = None) -> tuple[pd.DataFrame, str]:
     """Load a CSV FieldCare asset as a DataFrame and return its source path."""
-    text, source = read_asset_text(filename)
+    text, source = read_asset_text(filename, asset_dir)
     return pd.read_csv(StringIO(text), keep_default_na=False), source
 
 
@@ -299,14 +301,15 @@ def pretty(obj: Any) -> None:
 
 def load_fieldcare_environment() -> dict[str, Any]:
     """Load all FieldCare data files into one environment dictionary."""
-    manifest, manifest_source = load_json_asset("fieldcare_manifest.json")
-    service_docs, docs_source = load_jsonl_asset("service_docs.jsonl")
-    equipment_df, equipment_source = load_csv_asset("equipment_records.csv")
-    maintenance_df, maintenance_source = load_csv_asset("maintenance_history.csv")
-    tickets_df, tickets_source = load_csv_asset("service_tickets.csv")
-    tool_schemas, tool_schema_source = load_json_asset("tool_schemas.json")
-    user_requests, user_requests_source = load_jsonl_asset("user_requests.jsonl")
-    eval_cases, eval_cases_source = load_jsonl_asset("eval_cases.jsonl")
+    asset_dir = ensure_fieldcare_assets()
+    manifest, manifest_source = load_json_asset("fieldcare_manifest.json", asset_dir)
+    service_docs, docs_source = load_jsonl_asset("service_docs.jsonl", asset_dir)
+    equipment_df, equipment_source = load_csv_asset("equipment_records.csv", asset_dir)
+    maintenance_df, maintenance_source = load_csv_asset("maintenance_history.csv", asset_dir)
+    tickets_df, tickets_source = load_csv_asset("service_tickets.csv", asset_dir)
+    tool_schemas, tool_schema_source = load_json_asset("tool_schemas.json", asset_dir)
+    user_requests, user_requests_source = load_jsonl_asset("user_requests.jsonl", asset_dir)
+    eval_cases, eval_cases_source = load_jsonl_asset("eval_cases.jsonl", asset_dir)
 
     loaded_assets = pd.DataFrame(
         [
@@ -353,6 +356,7 @@ def load_fieldcare_environment() -> dict[str, Any]:
         ]
     )
     return {
+        "asset_dir": asset_dir,
         "manifest": manifest,
         "service_docs": service_docs,
         "equipment_df": equipment_df,
@@ -861,7 +865,7 @@ def build_fieldcare_pipeline(
         pipeline_design["retrieval_contract"],
         pipeline_design["capability_contract"],
     )
-    pipeline.tool_registry = build_fieldcare_direct_registry()
+    pipeline.tool_registry = build_fieldcare_direct_registry(pipeline.asset_dir)
     pipeline.openrouter_tool_definitions = pipeline.tool_registry.to_openrouter_tools()
     pipeline.registered_tool_names = [
         tool["function"]["name"] for tool in pipeline.openrouter_tool_definitions

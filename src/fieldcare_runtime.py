@@ -89,7 +89,7 @@ def configure_contracts(
     pipeline.retrieval_contract = deepcopy(retrieval)
     pipeline.capability_contract = deepcopy(capabilities)
     pipeline.contract_rules = deepcopy(by_type)
-    pipeline.asset_dir = find_fieldcare_asset_dir()
+    pipeline.asset_dir = find_fieldcare_asset_dir(pipeline.env.get("asset_dir"))
     pipeline.last_execution = None
 
 
