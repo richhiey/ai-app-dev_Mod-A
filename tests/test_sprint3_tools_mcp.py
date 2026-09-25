@@ -5,15 +5,71 @@ from sprint3_tools_mcp import (
     review_recovery_plan,
     run_direct_authorization_check,
     run_failure_scenarios,
-    run_scripted_tool_loop,
+    run_live_tool_loop,
     validate_checkpoint_evidence,
 )
 
 
-def test_sprint_3_helpers_cover_the_guided_checkpoint_path() -> None:
+def test_sprint_3_helpers_cover_the_guided_checkpoint_path(monkeypatch) -> None:
+    import json
+    import httpx
+    import sprint3_tools_mcp
+    from openrouter import OpenRouterClient
+
+    monkeypatch.setenv("OPENROUTER_API_KEY", "unit-test-key")
+
+    def provider(request):
+        messages = json.loads(request.content)["messages"]
+        completed = [message for message in messages if message["role"] == "tool"]
+        if not completed:
+            call = {
+                "id": "auth",
+                "type": "function",
+                "function": {
+                    "name": "check_export_authorization",
+                    "arguments": json.dumps(
+                        {
+                            "workspace_id": "workspace-acme-ops",
+                            "requester_email": "maya.singh@acme.example",
+                            "request_type": "external_auditor_export",
+                        }
+                    ),
+                },
+            }
+        elif len(completed) == 1:
+            call = {
+                "id": "policy",
+                "type": "function",
+                "function": {
+                    "name": "search_heliodesk_policy",
+                    "arguments": json.dumps({"query": "export authorization"}),
+                },
+            }
+        else:
+            return httpx.Response(
+                200,
+                json={"choices": [{"message": {"content": "Unit-test final answer"}}]},
+            )
+        return httpx.Response(
+            200,
+            json={"choices": [{"message": {"content": None, "tool_calls": [call]}}]},
+        )
+
+    with httpx.Client(transport=httpx.MockTransport(provider)) as transport:
+        monkeypatch.setattr(
+            sprint3_tools_mcp,
+            "OpenRouterClient",
+            lambda **kwargs: OpenRouterClient(http_client=transport, **kwargs),
+        )
+        _check_guided_path()
+
+
+def _check_guided_path():
     registry = build_heliodesk_tool_registry()
 
-    authorization_result, authorization_payload = run_direct_authorization_check(registry)
+    authorization_result, authorization_payload = run_direct_authorization_check(
+        registry
+    )
     assert authorization_result.ok is True
     assert authorization_payload["authorization"]["evidence_id"] == "AUTH-8841"
 
@@ -31,8 +87,8 @@ def test_sprint_3_helpers_cover_the_guided_checkpoint_path() -> None:
     )
     assert all(row["passes"] for row in recovery_review)
 
-    scripted_run, _ = run_scripted_tool_loop(registry)
-    assert [result.name for result in scripted_run.tool_results] == [
+    model_run = run_live_tool_loop(registry)
+    assert [result.name for result in model_run.tool_results] == [
         "check_export_authorization",
         "search_heliodesk_policy",
     ]
@@ -54,7 +110,9 @@ def test_sprint_3_helpers_cover_the_guided_checkpoint_path() -> None:
     validate_checkpoint_evidence(
         authorization_payload=authorization_payload,
         recovery_review=recovery_review,
-        scripted_run=scripted_run,
-        validated_mcp_rows=[{"index": 0, "score": 1.0, "text": "authorization evidence"}],
+        model_run=model_run,
+        validated_mcp_rows=[
+            {"index": 0, "score": 1.0, "text": "authorization evidence"}
+        ],
         decision_note_review=decision_note_review,
     )

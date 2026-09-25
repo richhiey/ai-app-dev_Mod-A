@@ -8,14 +8,18 @@ from models import all_allowed_model_ids
 
 ROOT = Path(__file__).resolve().parents[1]
 REPO_URL = "https://github.com/richhiey/ai-app-dev_Mod-A.git"
+RELEASE_REF = "main"
+# No immutable tag is in use; guard against one being reintroduced silently.
+TAG_PIN = ".git@module-a-v"
 PIP_REQUIREMENT = (
     "ms-ai-ml-helper-core @ "
-    "git+https://github.com/richhiey/ai-app-dev_Mod-A.git@main"
+    f"git+https://github.com/richhiey/ai-app-dev_Mod-A.git@{RELEASE_REF}"
 )
 NOTEBOOKS = [
     "notebooks/sprint_1_llm_structured_outputs.ipynb",
     "notebooks/sprint_2_rag_hybrid_hyde.ipynb",
     "notebooks/sprint_3_tools_mcp.ipynb",
+    "notebooks/sprint_4_fieldcare_project.ipynb",
 ]
 REQUIRED_TOPICS = {
     "notebooks/sprint_1_llm_structured_outputs.ipynb": [
@@ -38,7 +42,7 @@ REQUIRED_TOPICS = {
         "sprint3_tools_mcp",
         "build_heliodesk_tool_registry",
         "run_failure_scenarios",
-        "run_scripted_tool_loop",
+        "run_live_tool_loop",
         "connect_to_heliodesk_policy_mcp",
         "validate_mcp_policy_response",
     ],
@@ -68,7 +72,7 @@ LIVE_SESSION_ARCS = {
         "## 7. Let the model run a multi-step tool loop",
         "## 8. Connect to the MCP server",
         "## 9. Validate the MCP response",
-        "## 10. Sprint 3 checkpoint answers and evidence",
+        "## 10. Sprint 3 checkpoint evidence",
     ],
 }
 MODEL_SLUG_RE = re.compile(r"\b(?:google|cohere)/[a-z0-9._:-]+\b")
@@ -106,7 +110,7 @@ def test_colab_notebooks_are_valid_and_install_from_github() -> None:
             credential_source += (ROOT / "src" / "sprint3_tools_mcp.py").read_text(
                 encoding="utf-8"
             )
-        assert "userdata.get(\"OPENROUTER_API_KEY\")" in credential_source
+        assert "require_openrouter_key" in credential_source
         assert "ms_ai_ml_core" not in code
         assert "/Users/richhiey" not in code
 
@@ -141,13 +145,20 @@ def test_sprint_3_notebook_keeps_helper_plumbing_hidden() -> None:
     visible_code_cells = [
         "".join(cell.get("source", []))
         for cell in notebook.get("cells", [])
-        if cell.get("cell_type") == "code" and cell.get("metadata", {}).get("cellView") != "form"
+        if cell.get("cell_type") == "code"
+        and cell.get("metadata", {}).get("cellView") != "form"
     ]
 
     assert any("from sprint3_tools_mcp import" in source for source in code_cells)
-    assert not any("def check_export_authorization" in source for source in visible_code_cells)
-    assert not any("class ScriptedHelioDeskClient" in source for source in visible_code_cells)
-    assert all(len(source.splitlines()) <= 30 for source in visible_code_cells)
+    assert not any(
+        "def check_export_authorization" in source for source in visible_code_cells
+    )
+    assert not any(
+        "class ScriptedHelioDeskClient" in source for source in visible_code_cells
+    )
+    # Formatting a contract dictionary over several lines should not penalize
+    # readability. Bound executable statements, not physical lines.
+    assert all(len(ast.parse(source).body) <= 12 for source in visible_code_cells)
 
 
 def test_notebooks_cover_required_sprint_topics() -> None:
@@ -179,3 +190,70 @@ def test_notebooks_only_reference_enabled_openrouter_models() -> None:
         )
         for model_slug in MODEL_SLUG_RE.findall(source):
             assert model_slug in allowed
+
+
+def test_project_scaffold_emits_and_consumes_all_required_artifacts() -> None:
+    notebook_sources = {
+        relative_path: "\n".join(
+            "".join(cell.get("source", []))
+            for cell in _load_notebook(relative_path).get("cells", [])
+        )
+        for relative_path in [
+            "notebooks/sprint_1_llm_structured_outputs.ipynb",
+            "notebooks/sprint_2_rag_hybrid_hyde.ipynb",
+            "notebooks/sprint_3_tools_mcp.ipynb",
+            "notebooks/sprint_4_fieldcare_project.ipynb",
+        ]
+    }
+
+    assert (
+        "fieldcare_app_contract.json"
+        in notebook_sources["notebooks/sprint_1_llm_structured_outputs.ipynb"]
+    )
+    assert (
+        "fieldcare_retrieval_config.json"
+        in notebook_sources["notebooks/sprint_2_rag_hybrid_hyde.ipynb"]
+    )
+    sprint_3 = notebook_sources["notebooks/sprint_3_tools_mcp.ipynb"]
+    assert "fieldcare_capability_contracts.json" in sprint_3
+    assert "inspect_and_call_fieldcare_mcp" in sprint_3
+    sprint_4 = notebook_sources["notebooks/sprint_4_fieldcare_project.ipynb"]
+    assert all(
+        filename in sprint_4
+        for filename in [
+            "fieldcare_app_contract.json",
+            "fieldcare_retrieval_config.json",
+            "fieldcare_capability_contracts.json",
+            "fieldcare_submission_manifest.json",
+        ]
+    )
+    assert "fieldcare_project" in sprint_4
+    assert (
+        "search_service_docs must be exposed through MCP, not ToolRegistry"
+        in (ROOT / "src" / "fieldcare_project.py").read_text()
+    )
+
+
+def test_published_notebooks_install_from_main() -> None:
+    for relative_path in [
+        "notebooks/sprint_1_llm_structured_outputs.ipynb",
+        "notebooks/sprint_2_rag_hybrid_hyde.ipynb",
+        "notebooks/sprint_3_tools_mcp.ipynb",
+        "notebooks/sprint_4_fieldcare_project.ipynb",
+    ]:
+        source = (ROOT / relative_path).read_text(encoding="utf-8")
+        assert f".git@{RELEASE_REF}" in source
+        assert TAG_PIN not in source
+
+
+def test_student_workflows_do_not_substitute_scripted_models():
+    sources = [path.read_text() for path in (ROOT / "src").glob("*.py")]
+    sources += ["\n".join(_code_sources(_load_notebook(path))) for path in NOTEBOOKS]
+    for source in sources:
+        for forbidden in [
+            "ScriptedHelioDeskClient",
+            "run_scripted_tool_loop",
+            "MockTransport",
+            "RUN_FINAL_ANSWER",
+        ]:
+            assert forbidden not in source
